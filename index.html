@@ -1,0 +1,37 @@
+<html>
+<head>
+  <title>Sniper</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Mate:400,700,400italic&amp;subset=latin-ext" />
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/pure/1.0.1/pure-min.css" />
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/pure/1.0.1/grids-responsive-min.css" />
+
+  <style>
+    html, button, input, select, textarea, .pure-g [class *= "pure-u"] { font-family: "Mate", sans-serif; letter-spacing: 0; }
+    body { background-color: #222; color: #CCC; font-weight: 400; font-size: 1.2em; line-height: 1.3; }
+    #sniper { max-width: 800px; margin: auto; padding: 10px; }
+
+    .topbar { padding: 10px 0px; }
+    .header { font-weight: bold; padding: 10px 0px; }
+    .section { border-top: 1px solid #444; padding: 10px 0px; }
+
+    .big { color: #888; font-size: 2em; font-style: italic; }
+
+    .block { text-align: right; }
+    .block div { padding-right: 30px; }
+
+    .bids { text-align: right; }
+    .highest { text-align: right; }
+  </style>
+
+  <script src="sniper.js"></script>
+</head>
+<body>
+  <div id="sniper"></div>
+  <script>
+    var app = Elm.Main.init({ node: document.getElementById('sniper') });
+  </script>
+</body>
+</html>

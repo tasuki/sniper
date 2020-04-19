@@ -1,11 +1,12 @@
-module Main exposing (Domain, Model(..), Msg(..), baseUrl, getEndingSoon, init, main, subscriptions, update, view, viewModel)
+module Main exposing (Domain, Model(..), init, main, subscriptions, update, view, viewModel)
 
+import ApiClient as AC
 import Browser
+import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
-import Http
-import Json.Decode as D
+import Set exposing (Set)
 
 
 
@@ -25,32 +26,33 @@ main =
 -- MODEL
 
 
-baseUrl =
-    -- "https://www.namebase.io/api" sends bad cors headers
-    "http://nb-proxy.tasuki.org/api"
-
-
 type alias Domain =
     { name : String
-    , bids : Int
     , reveal : Int
+    , bids : Int
     , highestBid : Maybe Int
     }
 
 
-type alias EndingSoon =
-    { lastBlock : Int, domains : List Domain }
+type alias DomainsAtBlock =
+    { block : Int, domains : List Domain }
+
+
+type alias State =
+    { lastBlock : Int
+    , domainsAtBlock : List DomainsAtBlock
+    }
 
 
 type Model
     = Failure
     | Loading
-    | Success EndingSoon
+    | Success State
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Loading, getEndingSoon )
+    ( Loading, AC.getEndingSoon GotEndingSoon )
 
 
 
@@ -58,23 +60,82 @@ init _ =
 
 
 type Msg
-    = MorePlease
-    | GotEndingSoon (Result Http.Error EndingSoon)
+    = Refresh
+    | GotEndingSoon AC.EndingSoonResult
+    | GotDomainDetails AC.DomainDetailsResult
+
+
+initiateState : AC.EndingSoon -> State
+initiateState endingSoon =
+    let
+        currentBlock =
+            endingSoon.lastBlock + 1
+
+        toDomain : AC.EndingSoonDomain -> Domain
+        toDomain esd =
+            Domain esd.name esd.revealAt esd.bids Nothing
+
+        getBlock : List AC.EndingSoonDomain -> Int -> DomainsAtBlock
+        getBlock endingSoonDomains block =
+            endingSoonDomains
+                |> List.map toDomain
+                |> List.filter (\d -> d.reveal == block)
+                |> DomainsAtBlock block
+
+        blocks : List Int
+        blocks =
+            List.range (currentBlock + 1) (currentBlock + 11)
+
+        domainsAtBlocks : List DomainsAtBlock
+        domainsAtBlocks =
+            List.map (getBlock endingSoon.domains) blocks
+    in
+    State endingSoon.lastBlock domainsAtBlocks
+
+
+updateState : State -> AC.EndingSoon -> State
+updateState state endingSoon =
+    state
+
+
+updateModelWithDomains : Model -> AC.EndingSoon -> Model
+updateModelWithDomains model endingSoon =
+    let
+        state =
+            case model of
+                Loading ->
+                    initiateState endingSoon
+
+                Failure ->
+                    initiateState endingSoon
+
+                Success oldState ->
+                    updateState oldState endingSoon
+    in
+    Success state
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        MorePlease ->
-            ( Loading, getEndingSoon )
+        Refresh ->
+            ( Loading, AC.getEndingSoon GotEndingSoon )
 
         GotEndingSoon result ->
             case result of
                 Ok endingSoon ->
-                    ( Success endingSoon, Cmd.none )
+                    ( updateModelWithDomains model endingSoon, Cmd.none )
 
                 Err _ ->
                     ( Failure, Cmd.none )
+
+        GotDomainDetails result ->
+            case result of
+                Ok domainDetails ->
+                    ( Loading, Cmd.none )
+
+                Err _ ->
+                    ( Loading, Cmd.none )
 
 
 
@@ -92,55 +153,55 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
-    div []
-        [ h2 [] [ text "Hello Happy Handshake Snipers" ]
-        , viewModel model
+    div [ id "sniper" ]
+        (viewModel model)
+
+
+divWrap : Html Msg -> Html Msg
+divWrap html =
+    div [] <| [ html ]
+
+
+viewDomain : Domain -> Html Msg
+viewDomain d =
+    div [ class "pure-g" ]
+        [ div [ class "pure-u-1-2 name" ] [ text d.name ]
+        , div [ class "pure-u-1-4 bids" ] [ text <| String.fromInt d.bids ]
+        , div [ class "pure-u-1-4 highest" ] [ text <| Maybe.withDefault "" <| Maybe.map String.fromInt d.highestBid ]
         ]
 
 
-viewModel : Model -> Html Msg
+viewSection : DomainsAtBlock -> Html Msg
+viewSection dab =
+    div [ class "pure-g section" ]
+        [ div [ class "pure-u-1-3 block big" ] [ divWrap <| text <| String.fromInt <| dab.block ]
+        , div [ class "pure-u-2-3 domains" ] (List.map viewDomain dab.domains)
+        ]
+
+
+viewModel : Model -> List (Html Msg)
 viewModel model =
     case model of
-        Failure ->
-            div []
-                [ text "I could not load a random cat for some reason. "
-                , button [ onClick MorePlease ] [ text "Try Again!" ]
-                ]
-
         Loading ->
-            text "Loading..."
+            [ h2 [] [ text "Hello Happy Handshake Snipers" ]
+            , p [] [ text "Loading, this shouldn't take long..." ]
+            ]
 
-        Success endingSoon ->
-            div []
-                [ button [ onClick MorePlease, style "display" "block" ] [ text "More Please!" ]
-                , div [] [ text (String.fromInt endingSoon.lastBlock) ]
+        Failure ->
+            [ h2 [] [ text "Could not load the list of auctioned domains. Something's wrong :(" ]
+            , button [ onClick Refresh ] [ text "Try Again!" ]
+            ]
+
+        Success state ->
+            [ div [ class "pure-g topbar" ]
+                [ div [ class "pure-u-1-3 block big" ] [ divWrap <| text <| String.fromInt (state.lastBlock + 1) ]
+                , div [ class "pure-u-2-3" ] [ text "" ]
                 ]
-
-
-
--- HTTP
-
-
-getEndingSoon : Cmd Msg
-getEndingSoon =
-    Http.get
-        { url = baseUrl ++ "/domains/ending-soon/0"
-        , expect = Http.expectJson GotEndingSoon endingSoonDecoder
-        }
-
-
-endingSoonDecoder : D.Decoder EndingSoon
-endingSoonDecoder =
-    D.map2 EndingSoon
-        (D.field "height" D.int)
-        (D.field "domains" domainsDecoder)
-
-
-domainsDecoder : D.Decoder (List Domain)
-domainsDecoder =
-    D.list <|
-        D.map4 Domain
-            (D.field "name" D.string)
-            (D.field "total_number_bids" D.int)
-            (D.field "reveal_block" D.int)
-            (D.succeed Nothing)
+            , div [ class "pure-g header" ]
+                [ div [ class "pure-u-1-3 block" ] [ divWrap <| text "Block" ]
+                , div [ class "pure-u-1-3 name" ] [ text "Domain name" ]
+                , div [ class "pure-u-1-6 bids" ] [ text "Bids" ]
+                , div [ class "pure-u-1-6 highest" ] [ text "Highest bid" ]
+                ]
+            , div [] <| List.map viewSection state.domainsAtBlock
+            ]
