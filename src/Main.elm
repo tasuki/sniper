@@ -1,13 +1,4 @@
-module Main exposing
-    ( Domain
-    , Model(..)
-    , init
-    , main
-    , subscriptions
-    , update
-    , view
-    , viewModel
-    )
+module Main exposing (main)
 
 import ApiClient as AC
 import Browser
@@ -77,6 +68,10 @@ init _ =
     ( Loading, getEnding )
 
 
+initialState =
+    State 0 []
+
+
 emptyDomain =
     Domain "" 0 0 Nothing
 
@@ -100,9 +95,9 @@ currentBlock s =
     s.lastBlock + 1
 
 
-nextBlock : { a | lastBlock : Int } -> Int
-nextBlock s =
-    currentBlock s + 1
+nextBlock : Int -> Int
+nextBlock lastBlock =
+    lastBlock + 2
 
 
 timeLeft : State -> Int -> Int
@@ -132,45 +127,42 @@ getEnding =
         List.map getEndingSoon (List.range 0 pagesToFetch |> List.reverse)
 
 
-toDomains : AC.EndingSoon -> List Domain
-toDomains es =
-    let
-        toDomain : AC.EndingSoonDomain -> Domain
-        toDomain esd =
-            Domain esd.name esd.revealAt esd.bids Nothing
-    in
-    List.map toDomain es.domains
-
-
-showBlocks : AC.EndingSoon -> List Int
-showBlocks es =
-    List.range (nextBlock es) (nextBlock es + blocksToDisplay)
-
-
-getBlock : List Domain -> Int -> DomainsAtBlock
-getBlock domains block =
-    domains |> List.filter (\d -> d.reveal == block) |> DomainsAtBlock block
-
-
-getDomainsAtBlocks : List Domain -> List Int -> List DomainsAtBlock
-getDomainsAtBlocks domains blocks =
-    List.map (domains |> getBlock) blocks
-
-
 initiateState : AC.EndingSoon -> State
 initiateState endingSoon =
-    getDomainsAtBlocks (toDomains endingSoon) (showBlocks endingSoon)
-        |> State endingSoon.lastBlock
-
-
-domainsToDict : List Domain -> Dict String Domain
-domainsToDict domains =
-    List.map (\d -> ( d.name, d )) domains |> Dict.fromList
+    updateState initialState endingSoon
 
 
 updateState : State -> AC.EndingSoon -> State
 updateState state endingSoon =
     let
+        lastBlock =
+            Basics.max state.lastBlock endingSoon.lastBlock
+
+        showBlocks : Int -> List Int
+        showBlocks block =
+            List.range (nextBlock block) (nextBlock block + blocksToDisplay)
+
+        getBlock : List Domain -> Int -> DomainsAtBlock
+        getBlock domains block =
+            domains |> List.filter (\d -> d.reveal == block) |> DomainsAtBlock block
+
+        getDomainsAtBlocks : List Domain -> List Int -> List DomainsAtBlock
+        getDomainsAtBlocks domains blocks =
+            List.map (domains |> getBlock) blocks
+
+        toDomains : AC.EndingSoon -> List Domain
+        toDomains es =
+            let
+                toDomain : AC.EndingSoonDomain -> Domain
+                toDomain esd =
+                    Domain esd.name esd.revealAt esd.bids Nothing
+            in
+            List.map toDomain es.domains
+
+        domainsToDict : List Domain -> Dict String Domain
+        domainsToDict domains =
+            List.map (\d -> ( d.name, d )) domains |> Dict.fromList
+
         oldDomains : List Domain
         oldDomains =
             List.concatMap .domains state.domainsAtBlock
@@ -208,10 +200,10 @@ updateState state endingSoon =
 
         allDomains : List Domain
         allDomains =
-            Set.toList allDomainNames |> List.map maybeUpdateDomain
+            Set.toList allDomainNames |> List.map maybeUpdateDomain |> List.sortBy .bids |> List.reverse
     in
-    getDomainsAtBlocks allDomains (showBlocks endingSoon)
-        |> State (Basics.max state.lastBlock endingSoon.lastBlock)
+    getDomainsAtBlocks allDomains (showBlocks lastBlock)
+        |> State lastBlock
 
 
 updateModelWithDomains : Model -> AC.EndingSoon -> Model
