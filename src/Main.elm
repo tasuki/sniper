@@ -16,6 +16,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Set exposing (Set)
+import Time
 
 
 
@@ -114,7 +115,8 @@ timeLeft state block =
 
 
 type Msg
-    = Refresh
+    = Fetch
+    | Refetch Time.Posix
     | GotEndingSoon AC.EndingSoonResult
     | GotDomainDetails AC.DomainDetailsResult
 
@@ -232,8 +234,11 @@ updateModelWithDomains model endingSoon =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Refresh ->
+        Fetch ->
             ( Loading, getEnding )
+
+        Refetch _ ->
+            ( model, getEnding )
 
         GotEndingSoon result ->
             case result of
@@ -258,7 +263,10 @@ update msg model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Sub.none
+    Sub.batch
+        -- every three minutes
+        [ Time.every (3 * 60 * 1000) Refetch
+        ]
 
 
 
@@ -321,7 +329,7 @@ viewModel model =
 
         Failure ->
             [ h2 [] [ text "Could not load the list of auctioned domains. Something's wrong :(" ]
-            , button [ onClick Refresh ] [ text "Try Again!" ]
+            , button [ onClick Fetch ] [ text "Try Again!" ]
             ]
 
         Success state ->
