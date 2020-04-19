@@ -211,7 +211,7 @@ updateState state endingSoon =
             Set.toList allDomainNames |> List.map maybeUpdateDomain
     in
     getDomainsAtBlocks allDomains (showBlocks endingSoon)
-        |> State endingSoon.lastBlock
+        |> State (Basics.max state.lastBlock endingSoon.lastBlock)
 
 
 updateModelWithDomains : Model -> AC.EndingSoon -> Model
