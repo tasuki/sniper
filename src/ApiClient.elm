@@ -21,6 +21,10 @@ baseUrl =
     "http://nb-proxy.tasuki.org/api"
 
 
+endingSoonPerPage =
+    12
+
+
 
 -- get "ending soon"
 
@@ -42,10 +46,13 @@ type alias EndingSoonResult =
     Result Http.Error EndingSoon
 
 
-getEndingSoon : (EndingSoonResult -> msg) -> Cmd msg
-getEndingSoon ctor =
+getEndingSoon : Int -> (EndingSoonResult -> msg) -> Cmd msg
+getEndingSoon count ctor =
     Http.get
-        { url = baseUrl ++ "/domains/ending-soon/0"
+        { url =
+            baseUrl
+                ++ "/domains/ending-soon/"
+                ++ (count * endingSoonPerPage |> String.fromInt)
         , expect = Http.expectJson ctor endingSoonDecoder
         }
 

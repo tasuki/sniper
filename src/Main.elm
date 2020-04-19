@@ -1,10 +1,21 @@
-module Main exposing (Domain, Model(..), init, main, subscriptions, update, view, viewModel)
+module Main exposing
+    ( Domain
+    , Model(..)
+    , init
+    , main
+    , subscriptions
+    , update
+    , view
+    , viewModel
+    )
 
 import ApiClient as AC
 import Browser
+import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+import Set exposing (Set)
 
 
 
@@ -13,6 +24,10 @@ import Html.Events exposing (..)
 
 blocksToDisplay =
     20
+
+
+pagesToFetch =
+    5
 
 
 
@@ -58,7 +73,25 @@ type Model
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Loading, AC.getEndingSoon GotEndingSoon )
+    ( Loading, getEnding )
+
+
+emptyDomain =
+    Domain "" 0 0 Nothing
+
+
+updateDomain : Domain -> Domain -> Domain
+updateDomain old new =
+    let
+        highest =
+            case ( old.highestBid, new.highestBid ) of
+                ( Just bid, Nothing ) ->
+                    Just bid
+
+                ( _, bid ) ->
+                    bid
+    in
+    Domain new.name new.reveal new.bids highest
 
 
 currentBlock : { a | lastBlock : Int } -> Int
@@ -86,34 +119,97 @@ type Msg
     | GotDomainDetails AC.DomainDetailsResult
 
 
-initiateState : AC.EndingSoon -> State
-initiateState endingSoon =
+getEndingSoon : Int -> Cmd Msg
+getEndingSoon page =
+    AC.getEndingSoon page GotEndingSoon
+
+
+getEnding : Cmd Msg
+getEnding =
+    Cmd.batch <|
+        List.map getEndingSoon (List.range 0 pagesToFetch |> List.reverse)
+
+
+toDomains : AC.EndingSoon -> List Domain
+toDomains es =
     let
         toDomain : AC.EndingSoonDomain -> Domain
         toDomain esd =
             Domain esd.name esd.revealAt esd.bids Nothing
-
-        getBlock : List AC.EndingSoonDomain -> Int -> DomainsAtBlock
-        getBlock endingSoonDomains block =
-            endingSoonDomains
-                |> List.map toDomain
-                |> List.filter (\d -> d.reveal == block)
-                |> DomainsAtBlock block
-
-        blocks : List Int
-        blocks =
-            List.range (nextBlock endingSoon) (nextBlock endingSoon + blocksToDisplay)
-
-        domainsAtBlocks : List DomainsAtBlock
-        domainsAtBlocks =
-            List.map (getBlock endingSoon.domains) blocks
     in
-    State endingSoon.lastBlock domainsAtBlocks
+    List.map toDomain es.domains
+
+
+showBlocks : AC.EndingSoon -> List Int
+showBlocks es =
+    List.range (nextBlock es) (nextBlock es + blocksToDisplay)
+
+
+getBlock : List Domain -> Int -> DomainsAtBlock
+getBlock domains block =
+    domains |> List.filter (\d -> d.reveal == block) |> DomainsAtBlock block
+
+
+getDomainsAtBlocks : List Domain -> List Int -> List DomainsAtBlock
+getDomainsAtBlocks domains blocks =
+    List.map (domains |> getBlock) blocks
+
+
+initiateState : AC.EndingSoon -> State
+initiateState endingSoon =
+    getDomainsAtBlocks (toDomains endingSoon) (showBlocks endingSoon)
+        |> State endingSoon.lastBlock
+
+
+domainsToDict : List Domain -> Dict String Domain
+domainsToDict domains =
+    List.map (\d -> ( d.name, d )) domains |> Dict.fromList
 
 
 updateState : State -> AC.EndingSoon -> State
 updateState state endingSoon =
-    state
+    let
+        oldDomains : List Domain
+        oldDomains =
+            List.concatMap .domains state.domainsAtBlock
+
+        newDomains : List Domain
+        newDomains =
+            toDomains endingSoon
+
+        oldDomainsDict : Dict String Domain
+        oldDomainsDict =
+            domainsToDict oldDomains
+
+        newDomainsDict : Dict String Domain
+        newDomainsDict =
+            domainsToDict newDomains
+
+        allDomainNames : Set String
+        allDomainNames =
+            oldDomains ++ newDomains |> List.map (\d -> d.name) |> Set.fromList
+
+        maybeUpdateDomain : String -> Domain
+        maybeUpdateDomain name =
+            case ( Dict.get name oldDomainsDict, Dict.get name newDomainsDict ) of
+                ( Just old, Just new ) ->
+                    updateDomain old new
+
+                ( Just old, _ ) ->
+                    old
+
+                ( _, Just new ) ->
+                    new
+
+                ( _, _ ) ->
+                    emptyDomain
+
+        allDomains : List Domain
+        allDomains =
+            Set.toList allDomainNames |> List.map maybeUpdateDomain
+    in
+    getDomainsAtBlocks allDomains (showBlocks endingSoon)
+        |> State endingSoon.lastBlock
 
 
 updateModelWithDomains : Model -> AC.EndingSoon -> Model
@@ -137,7 +233,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Refresh ->
-            ( Loading, AC.getEndingSoon GotEndingSoon )
+            ( Loading, getEnding )
 
         GotEndingSoon result ->
             case result of
@@ -180,14 +276,26 @@ divWrap html =
     div [] <| [ html ]
 
 
+nameClass =
+    "pure-u-14-24 name"
+
+
+bidsClass =
+    "pure-u-4-24 bids"
+
+
+highestClass =
+    "pure-u-6-24 highest"
+
+
 viewDomain : Domain -> Html Msg
 viewDomain d =
     div [ class "pure-g" ]
-        [ div [ class "pure-u-1-2 name" ]
+        [ div [ class nameClass ]
             [ a [ href ("https://www.namebase.io/domains/" ++ d.name) ] [ text d.name ]
             ]
-        , div [ class "pure-u-1-4 bids" ] [ text <| String.fromInt d.bids ]
-        , div [ class "pure-u-1-4 highest" ]
+        , div [ class bidsClass ] [ text <| String.fromInt d.bids ]
+        , div [ class highestClass ]
             [ text <| Maybe.withDefault "" <| Maybe.map String.fromInt d.highestBid
             ]
         ]
@@ -196,10 +304,10 @@ viewDomain d =
 viewSection : State -> DomainsAtBlock -> Html Msg
 viewSection state dab =
     div [ class "pure-g section" ]
-        [ div [ class "pure-u-5-24 block it gray" ]
+        [ div [ class "pure-u-6-24 block it gray" ]
             [ divWrap <| text <| "<" ++ (String.fromInt <| timeLeft state dab.block) ++ " min left" ]
-        , div [ class "pure-u-3-24 block it gray" ] [ divWrap <| text <| String.fromInt <| dab.block ]
-        , div [ class "pure-u-16-24 domains" ] (List.map viewDomain dab.domains)
+        , div [ class "pure-u-4-24 block it gray" ] [ divWrap <| text <| String.fromInt <| dab.block ]
+        , div [ class "pure-u-14-24 domains" ] (List.map viewDomain dab.domains)
         ]
 
 
@@ -218,16 +326,18 @@ viewModel model =
 
         Success state ->
             [ div [ class "pure-g topbar" ]
-                [ div [ class "pure-u-1-3 block it gray" ]
+                [ div [ class "pure-u-10-24 block it gray" ]
                     [ divWrap <| text <| String.fromInt (currentBlock state)
                     ]
-                , div [ class "pure-u-2-3 gray" ] [ text "<- currently mined block" ]
+                , div [ class "pure-u-14-24 gray" ] [ text "<- currently mined block" ]
                 ]
             , div [ class "pure-g header" ]
-                [ div [ class "pure-u-1-3 block" ] [ divWrap <| text "Block" ]
-                , div [ class "pure-u-1-3 name" ] [ text "Domain name" ]
-                , div [ class "pure-u-1-6 bids" ] [ text "Bids" ]
-                , div [ class "pure-u-1-6 highest" ] [ text "High bid" ]
+                [ div [ class "pure-u-10-24 block" ] [ divWrap <| text "Block" ]
+                , div [ class "pure-u-14-24" ]
+                    [ div [ class nameClass ] [ text "Domain name" ]
+                    , div [ class bidsClass ] [ text "Bids" ]
+                    , div [ class highestClass ] [ text "High bid" ]
+                    ]
                 ]
             , div [] <| List.map (viewSection state) state.domainsAtBlock
             ]
