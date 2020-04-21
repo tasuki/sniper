@@ -46,8 +46,8 @@ type alias EndingSoonResult =
     Result Http.Error EndingSoon
 
 
-getEndingSoon : Int -> (EndingSoonResult -> msg) -> Cmd msg
-getEndingSoon count ctor =
+getEndingSoon : (EndingSoonResult -> msg) -> Int -> Cmd msg
+getEndingSoon ctor count =
     Http.get
         { url =
             baseUrl
@@ -81,6 +81,7 @@ type alias DomainDetails =
     { name : String
     , revealAt : Int
     , highestBid : Int
+    , lastBlock : Int
     }
 
 
@@ -88,8 +89,8 @@ type alias DomainDetailsResult =
     Result Http.Error DomainDetails
 
 
-getDomainDetails : String -> (DomainDetailsResult -> msg) -> Cmd msg
-getDomainDetails domain ctor =
+getDomainDetails : (DomainDetailsResult -> msg) -> String -> Cmd msg
+getDomainDetails ctor domain =
     Http.get
         { url = baseUrl ++ "/domains/get/" ++ domain
         , expect = Http.expectJson ctor domainDetailsDecoder
@@ -98,7 +99,8 @@ getDomainDetails domain ctor =
 
 domainDetailsDecoder : D.Decoder DomainDetails
 domainDetailsDecoder =
-    D.map3 DomainDetails
+    D.map4 DomainDetails
         (D.field "name" D.string)
-        (D.field "revealAt" D.int)
+        (D.field "revealBlock" D.int)
         (D.field "highestStakeAmount" D.int)
+        (D.field "height" D.int)

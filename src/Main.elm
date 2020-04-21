@@ -6,8 +6,10 @@ import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+import List.Extra
 import Set exposing (Set)
 import Time
+import Util
 
 
 
@@ -42,7 +44,7 @@ main =
 type alias Domain =
     { name : String
     , reveal : Int
-    , bids : Int
+    , bids : Maybe Int
     , highestBid : Maybe Int
     }
 
@@ -73,21 +75,19 @@ initialState =
 
 
 emptyDomain =
-    Domain "" 0 0 Nothing
+    Domain "" 0 Nothing Nothing
 
 
 updateDomain : Domain -> Domain -> Domain
 updateDomain old new =
     let
-        highest =
-            case ( old.highestBid, new.highestBid ) of
-                ( Just bid, Nothing ) ->
-                    Just bid
+        bids =
+            Util.maybeUpdateField .bids old new
 
-                ( _, bid ) ->
-                    bid
+        highestBid =
+            Util.maybeUpdateField .highestBid old new
     in
-    Domain new.name new.reveal new.bids highest
+    Domain new.name new.reveal bids highestBid
 
 
 currentBlock : { a | lastBlock : Int } -> Int
@@ -110,33 +110,70 @@ timeLeft state block =
 
 
 type Msg
-    = Fetch
-    | Refetch Time.Posix
+    = FetchEndingSoon
+    | RefetchEndingSoon Time.Posix
     | GotEndingSoon AC.EndingSoonResult
+    | FetchDomainDetails Time.Posix
     | GotDomainDetails AC.DomainDetailsResult
-
-
-getEndingSoon : Int -> Cmd Msg
-getEndingSoon page =
-    AC.getEndingSoon page GotEndingSoon
 
 
 getEnding : Cmd Msg
 getEnding =
-    Cmd.batch <|
-        List.map getEndingSoon (List.range 0 pagesToFetch |> List.reverse)
+    List.range 0 pagesToFetch
+        |> List.reverse
+        |> List.map (AC.getEndingSoon GotEndingSoon)
+        |> Cmd.batch
+
+
+fetchDomains : List Domain -> Cmd Msg
+fetchDomains domains =
+    List.map .name domains
+        |> List.map (AC.getDomainDetails GotDomainDetails)
+        |> Cmd.batch
+
+
+shouldGetDomain : Int -> ( Int, Domain ) -> Maybe Domain
+shouldGetDomain mins ( seq, domain ) =
+    if Basics.modBy seq mins == 0 then
+        Just domain
+
+    else
+        Nothing
+
+
+getDomainsWhoseTimeIsRipe : State -> Int -> Cmd Msg
+getDomainsWhoseTimeIsRipe state mins =
+    List.concatMap (\dab -> dab.domains) state.domainsAtBlock
+        |> List.map (\d -> ( d.reveal - currentBlock state, d ))
+        |> List.filterMap (shouldGetDomain mins)
+        |> fetchDomains
 
 
 initiateState : AC.EndingSoon -> State
 initiateState endingSoon =
-    updateState initialState endingSoon
+    updateStateEndingSoon initialState endingSoon
 
 
-updateState : State -> AC.EndingSoon -> State
-updateState state endingSoon =
+chooseLastBlock : State -> Int -> Int
+chooseLastBlock state new =
+    Basics.max state.lastBlock new
+
+
+endingSoonToDomains : AC.EndingSoon -> List Domain
+endingSoonToDomains es =
     let
-        lastBlock =
-            Basics.max state.lastBlock endingSoon.lastBlock
+        toDomain : AC.EndingSoonDomain -> Domain
+        toDomain esd =
+            Domain esd.name esd.revealAt (Just esd.bids) Nothing
+    in
+    List.map toDomain es.domains
+
+
+updateStateEndingSoon : State -> AC.EndingSoon -> State
+updateStateEndingSoon state endingSoon =
+    let
+        newLastBlock =
+            chooseLastBlock state endingSoon.lastBlock
 
         showBlocks : Int -> List Int
         showBlocks block =
@@ -148,16 +185,7 @@ updateState state endingSoon =
 
         getDomainsAtBlocks : List Domain -> List Int -> List DomainsAtBlock
         getDomainsAtBlocks domains blocks =
-            List.map (domains |> getBlock) blocks
-
-        toDomains : AC.EndingSoon -> List Domain
-        toDomains es =
-            let
-                toDomain : AC.EndingSoonDomain -> Domain
-                toDomain esd =
-                    Domain esd.name esd.revealAt esd.bids Nothing
-            in
-            List.map toDomain es.domains
+            List.map (getBlock domains) blocks
 
         domainsToDict : List Domain -> Dict String Domain
         domainsToDict domains =
@@ -169,7 +197,7 @@ updateState state endingSoon =
 
         newDomains : List Domain
         newDomains =
-            toDomains endingSoon
+            endingSoonToDomains endingSoon
 
         oldDomainsDict : Dict String Domain
         oldDomainsDict =
@@ -200,64 +228,128 @@ updateState state endingSoon =
 
         allDomains : List Domain
         allDomains =
-            Set.toList allDomainNames |> List.map maybeUpdateDomain |> List.sortBy .bids |> List.reverse
+            Set.toList allDomainNames |> List.map maybeUpdateDomain |> List.sortBy .name
     in
-    getDomainsAtBlocks allDomains (showBlocks lastBlock)
-        |> State lastBlock
+    getDomainsAtBlocks allDomains (showBlocks newLastBlock)
+        |> State newLastBlock
 
 
-updateModelWithDomains : Model -> AC.EndingSoon -> Model
-updateModelWithDomains model endingSoon =
+updateModelEndingSoon : Model -> AC.EndingSoon -> State
+updateModelEndingSoon model endingSoon =
+    case model of
+        Loading ->
+            initiateState endingSoon
+
+        Failure ->
+            initiateState endingSoon
+
+        Success oldState ->
+            updateStateEndingSoon oldState endingSoon
+
+
+replaceDomain : DomainsAtBlock -> Domain -> DomainsAtBlock
+replaceDomain dab newDomain =
+    case Util.splitOut (\d -> d.name == newDomain.name) dab.domains of
+        Nothing ->
+            dab
+
+        Just ( before, oldDomain, after ) ->
+            DomainsAtBlock dab.block (before ++ updateDomain oldDomain newDomain :: after)
+
+
+updateStateDomainDetails : State -> Int -> Domain -> State
+updateStateDomainDetails state lastBlock domain =
     let
-        state =
-            case model of
-                Loading ->
-                    initiateState endingSoon
+        newLastBlock =
+            chooseLastBlock state lastBlock
 
-                Failure ->
-                    initiateState endingSoon
+        newDabs : List DomainsAtBlock
+        newDabs =
+            case Util.splitOut (\dab -> dab.block == domain.reveal) state.domainsAtBlock of
+                Nothing ->
+                    state.domainsAtBlock
 
-                Success oldState ->
-                    updateState oldState endingSoon
+                Just ( before, found, after ) ->
+                    before ++ replaceDomain found domain :: after
     in
-    Success state
+    State newLastBlock <|
+        List.Extra.dropWhile (\dab -> dab.block < nextBlock newLastBlock) newDabs
+
+
+updateModelDomainDetails : Model -> AC.DomainDetails -> Model
+updateModelDomainDetails model domainDetails =
+    let
+        toDomain : AC.DomainDetails -> Domain
+        toDomain d =
+            Domain d.name d.revealAt Nothing (Just d.highestBid)
+    in
+    case model of
+        Success state ->
+            Success <|
+                updateStateDomainDetails
+                    state
+                    domainDetails.lastBlock
+                    (toDomain domainDetails)
+
+        _ ->
+            -- shouldn't be calling this when no state
+            Failure
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Fetch ->
+        FetchEndingSoon ->
             ( Loading, getEnding )
 
-        Refetch _ ->
+        RefetchEndingSoon _ ->
             ( model, getEnding )
 
         GotEndingSoon result ->
             case result of
                 Ok endingSoon ->
-                    ( updateModelWithDomains model endingSoon, Cmd.none )
+                    let
+                        domains : List Domain
+                        domains =
+                            endingSoonToDomains endingSoon
+                    in
+                    ( Success <| updateModelEndingSoon model endingSoon, fetchDomains domains )
 
                 Err _ ->
                     ( Failure, Cmd.none )
 
+        FetchDomainDetails time ->
+            case model of
+                Success state ->
+                    -- add 1 to have minutes 1-60 instead of 0-59
+                    ( model, getDomainsWhoseTimeIsRipe state (1 + Time.toMinute Time.utc time) )
+
+                _ ->
+                    ( model, Cmd.none )
+
         GotDomainDetails result ->
             case result of
                 Ok domainDetails ->
-                    ( Loading, Cmd.none )
+                    ( updateModelDomainDetails model domainDetails, Cmd.none )
 
                 Err _ ->
-                    ( Loading, Cmd.none )
+                    ( model, Cmd.none )
 
 
 
 -- SUBSCRIPTIONS
 
 
+minutes : number -> number
+minutes min =
+    min * 60 * 1000
+
+
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-        -- every three minutes
-        [ Time.every (3 * 60 * 1000) Refetch
+        [ Time.every (minutes 10) RefetchEndingSoon
+        , Time.every (minutes 1) FetchDomainDetails
         ]
 
 
@@ -288,16 +380,40 @@ highestClass =
     "pure-u-6-24 highest"
 
 
+displayMaybeNumber : Maybe Int -> String
+displayMaybeNumber maybeN =
+    Maybe.withDefault "" <| Maybe.map String.fromInt maybeN
+
+
+displayBid : Maybe Int -> String
+displayBid maybeBid =
+    let
+        bid =
+            Maybe.map (\n -> n // 10000) maybeBid
+                |> Maybe.map String.fromInt
+                |> Maybe.withDefault ""
+
+        integer =
+            String.slice 0 -2 bid
+
+        decimal =
+            String.right 2 bid
+    in
+    if String.length decimal == 2 then
+        integer ++ "." ++ decimal
+
+    else
+        ""
+
+
 viewDomain : Domain -> Html Msg
 viewDomain d =
     div [ class "pure-g" ]
         [ div [ class nameClass ]
             [ a [ href ("https://www.namebase.io/domains/" ++ d.name) ] [ text d.name ]
             ]
-        , div [ class bidsClass ] [ text <| String.fromInt d.bids ]
-        , div [ class highestClass ]
-            [ text <| Maybe.withDefault "" <| Maybe.map String.fromInt d.highestBid
-            ]
+        , div [ class bidsClass ] [ text <| displayMaybeNumber d.bids ]
+        , div [ class highestClass ] [ text <| displayBid d.highestBid ]
         ]
 
 
@@ -321,12 +437,16 @@ viewModel model =
 
         Failure ->
             [ h2 [] [ text "Could not load the list of auctioned domains. Something's wrong :(" ]
-            , button [ onClick Fetch ] [ text "Try Again!" ]
+            , button [ onClick FetchEndingSoon ] [ text "Try Again!" ]
             ]
 
         Success state ->
             [ div [ class "pure-g topbar" ]
                 [ div [ class "pure-u-10-24 block it gray" ]
+                    [ divWrap <| text <| String.fromInt state.lastBlock
+                    ]
+                , div [ class "pure-u-14-24 gray" ] [ text "<- blockchain height" ]
+                , div [ class "pure-u-10-24 block it gray" ]
                     [ divWrap <| text <| String.fromInt (currentBlock state)
                     ]
                 , div [ class "pure-u-14-24 gray" ] [ text "<- currently mined block" ]
