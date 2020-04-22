@@ -17,11 +17,7 @@ import Util
 
 
 blocksToDisplay =
-    20
-
-
-pagesToFetch =
-    5
+    15
 
 
 
@@ -112,17 +108,19 @@ timeLeft state block =
 type Msg
     = FetchEndingSoon
     | RefetchEndingSoon Time.Posix
-    | GotEndingSoon AC.EndingSoonResult
+    | GotEndingSoon Int AC.EndingSoonResult
     | FetchDomainDetails Time.Posix
     | GotDomainDetails AC.DomainDetailsResult
 
 
 getEnding : Cmd Msg
 getEnding =
-    List.range 0 pagesToFetch
-        |> List.reverse
-        |> List.map (AC.getEndingSoon GotEndingSoon)
-        |> Cmd.batch
+    getEndingPage 0
+
+
+getEndingPage : Int -> Cmd Msg
+getEndingPage page =
+    AC.getEndingSoon (GotEndingSoon page) page
 
 
 fetchDomains : List Domain -> Cmd Msg
@@ -177,7 +175,7 @@ updateStateEndingSoon state endingSoon =
 
         showBlocks : Int -> List Int
         showBlocks block =
-            List.range (nextBlock block) (nextBlock block + blocksToDisplay)
+            List.range (nextBlock block) (nextBlock block + blocksToDisplay - 1)
 
         getBlock : List Domain -> Int -> DomainsAtBlock
         getBlock domains block =
@@ -296,6 +294,42 @@ updateModelDomainDetails model domainDetails =
             Failure
 
 
+updateEndingSoon : State -> Int -> AC.EndingSoon -> ( Model, Cmd Msg )
+updateEndingSoon state page endingSoon =
+    let
+        domainsWithoutHighest : Set String
+        domainsWithoutHighest =
+            List.concatMap .domains state.domainsAtBlock
+                |> List.filter (\d -> d.highestBid == Nothing)
+                |> List.map .name
+                |> Set.fromList
+
+        domainsToFetch : List Domain
+        domainsToFetch =
+            endingSoonToDomains endingSoon
+                |> List.filter (\d -> Set.member d.name domainsWithoutHighest)
+
+        maxFetched : Int
+        maxFetched =
+            endingSoon.domains
+                |> List.map (\d -> d.revealAt)
+                |> List.maximum
+                |> Maybe.withDefault 0
+
+        fetchNext : Cmd Msg
+        fetchNext =
+            if maxFetched < currentBlock state + blocksToDisplay then
+                getEndingPage (page + 1)
+
+            else
+                Cmd.none
+    in
+    ( Success <| state
+    , Cmd.batch
+        [ fetchDomains domainsToFetch, fetchNext ]
+    )
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -305,27 +339,10 @@ update msg model =
         RefetchEndingSoon _ ->
             ( model, getEnding )
 
-        GotEndingSoon result ->
+        GotEndingSoon page result ->
             case result of
                 Ok endingSoon ->
-                    let
-                        state : State
-                        state =
-                            updateModelEndingSoon model endingSoon
-
-                        domainsWithoutHighest : Set String
-                        domainsWithoutHighest =
-                            List.concatMap .domains state.domainsAtBlock
-                                |> List.filter (\d -> d.highestBid == Nothing)
-                                |> List.map .name
-                                |> Set.fromList
-
-                        domains : List Domain
-                        domains =
-                            endingSoonToDomains endingSoon
-                                |> List.filter (\d -> Set.member d.name domainsWithoutHighest)
-                    in
-                    ( Success <| state, fetchDomains domains )
+                    updateEndingSoon (updateModelEndingSoon model endingSoon) page endingSoon
 
                 Err _ ->
                     ( Failure, Cmd.none )
