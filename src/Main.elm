@@ -309,11 +309,23 @@ update msg model =
             case result of
                 Ok endingSoon ->
                     let
+                        state : State
+                        state =
+                            updateModelEndingSoon model endingSoon
+
+                        domainsWithoutHighest : Set String
+                        domainsWithoutHighest =
+                            List.concatMap .domains state.domainsAtBlock
+                                |> List.filter (\d -> d.highestBid == Nothing)
+                                |> List.map .name
+                                |> Set.fromList
+
                         domains : List Domain
                         domains =
                             endingSoonToDomains endingSoon
+                                |> List.filter (\d -> Set.member d.name domainsWithoutHighest)
                     in
-                    ( Success <| updateModelEndingSoon model endingSoon, fetchDomains domains )
+                    ( Success <| state, fetchDomains domains )
 
                 Err _ ->
                     ( Failure, Cmd.none )
