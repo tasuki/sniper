@@ -18,7 +18,7 @@ import Json.Decode as D
 
 baseUrl =
     -- "https://www.namebase.io/api" sends bad cors headers
-    "http://nb-proxy.tasuki.org/api"
+    "http://nb-proxy.tasuki/api"
 
 
 endingSoonPerPage =
