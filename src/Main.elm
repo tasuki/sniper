@@ -318,7 +318,7 @@ updateEndingSoon state page endingSoon =
 
         fetchNext : Cmd Msg
         fetchNext =
-            if maxFetched < currentBlock state + blocksToDisplay then
+            if maxFetched <= currentBlock state + blocksToDisplay then
                 getEndingPage (page + 1)
 
             else
