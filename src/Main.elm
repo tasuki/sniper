@@ -279,7 +279,7 @@ updateModelDomainDetails model domainDetails =
     let
         toDomain : AC.DomainDetails -> Domain
         toDomain d =
-            Domain d.name d.revealAt Nothing (Just d.highestBid)
+            Domain d.name d.revealAt (Just <| List.length d.bids) (Just d.highestBid)
     in
     case model of
         Success state ->

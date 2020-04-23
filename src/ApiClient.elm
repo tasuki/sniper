@@ -77,11 +77,16 @@ domainsDecoder =
 -- get "domain details"
 
 
+type alias Bid =
+    { stakeAmount : Int }
+
+
 type alias DomainDetails =
     { name : String
     , revealAt : Int
     , highestBid : Int
     , lastBlock : Int
+    , bids : List Bid
     }
 
 
@@ -97,10 +102,21 @@ getDomainDetails ctor domain =
         }
 
 
+stringToInt : D.Decoder String -> D.Decoder Int
+stringToInt =
+    D.map String.toInt >> D.map (Maybe.withDefault 0)
+
+
+bidsDecoder : D.Decoder (List Bid)
+bidsDecoder =
+    D.list <| D.map Bid (D.field "stake_amount" D.string |> stringToInt)
+
+
 domainDetailsDecoder : D.Decoder DomainDetails
 domainDetailsDecoder =
-    D.map4 DomainDetails
+    D.map5 DomainDetails
         (D.field "name" D.string)
         (D.field "revealBlock" D.int)
         (D.field "highestStakeAmount" D.int)
         (D.field "height" D.int)
+        (D.field "bids" bidsDecoder)
