@@ -7,10 +7,15 @@ linking back to their servers.
 
 On Ubuntu, install [Elm] and run the reactor in this directory:
 
-    $ npm install elm
-    $ elm reactor
+    npm install elm
+    elm reactor
 
 That will run it without css :shrug:
+
+To run with css, compiling every 5 seconds:
+
+    watch -n 5 elm make src/Main.elm --debug --output=sniper.js
+
 
 ### Build
 
