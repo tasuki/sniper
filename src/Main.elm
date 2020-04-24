@@ -124,10 +124,10 @@ getEndingPage page =
 
 
 fetchDomains : List Domain -> Cmd Msg
-fetchDomains domains =
-    List.map .name domains
-        |> List.map (AC.getDomainDetails GotDomainDetails)
-        |> Cmd.batch
+fetchDomains =
+    List.map .name
+        >> List.map (AC.getDomainDetails GotDomainDetails)
+        >> Cmd.batch
 
 
 shouldGetDomain : Int -> ( Int, Domain ) -> Maybe Domain
@@ -147,14 +147,9 @@ getDomainsWhoseTimeIsRipe state mins =
         |> fetchDomains
 
 
-initiateState : AC.EndingSoon -> State
-initiateState endingSoon =
-    updateStateEndingSoon initialState endingSoon
-
-
 chooseLastBlock : State -> Int -> Int
-chooseLastBlock state new =
-    Basics.max state.lastBlock new
+chooseLastBlock state =
+    Basics.max state.lastBlock
 
 
 endingSoonToDomains : AC.EndingSoon -> List Domain
@@ -177,17 +172,17 @@ updateStateEndingSoon state endingSoon =
         showBlocks block =
             List.range (nextBlock block) (nextBlock block + blocksToDisplay - 1)
 
-        getBlock : List Domain -> Int -> DomainsAtBlock
-        getBlock domains block =
-            domains |> List.filter (\d -> d.reveal == block) |> DomainsAtBlock block
+        getBlock : Int -> List Domain -> DomainsAtBlock
+        getBlock block =
+            List.filter (\d -> d.reveal == block) >> DomainsAtBlock block
 
         getDomainsAtBlocks : List Domain -> List Int -> List DomainsAtBlock
-        getDomainsAtBlocks domains blocks =
-            List.map (getBlock domains) blocks
+        getDomainsAtBlocks domains =
+            List.map (\b -> getBlock b domains)
 
         domainsToDict : List Domain -> Dict String Domain
-        domainsToDict domains =
-            List.map (\d -> ( d.name, d )) domains |> Dict.fromList
+        domainsToDict =
+            List.map (\d -> ( d.name, d )) >> Dict.fromList
 
         oldDomains : List Domain
         oldDomains =
@@ -233,16 +228,13 @@ updateStateEndingSoon state endingSoon =
 
 
 updateModelEndingSoon : Model -> AC.EndingSoon -> State
-updateModelEndingSoon model endingSoon =
+updateModelEndingSoon model =
     case model of
-        Loading ->
-            initiateState endingSoon
-
-        Failure ->
-            initiateState endingSoon
-
         Success oldState ->
-            updateStateEndingSoon oldState endingSoon
+            updateStateEndingSoon oldState
+
+        _ ->
+            updateStateEndingSoon initialState
 
 
 replaceDomain : DomainsAtBlock -> Domain -> DomainsAtBlock
@@ -410,8 +402,8 @@ highestClass =
 
 
 displayMaybeNumber : Maybe Int -> String
-displayMaybeNumber maybeN =
-    Maybe.withDefault "" <| Maybe.map String.fromInt maybeN
+displayMaybeNumber =
+    Maybe.map String.fromInt >> Maybe.withDefault ""
 
 
 displayBid : Maybe Int -> String

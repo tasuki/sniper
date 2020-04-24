@@ -4,7 +4,7 @@ import List.Extra
 
 
 splitOut : (a -> Bool) -> List a -> Maybe ( List a, a, List a )
-splitOut predicate list =
+splitOut predicate =
     let
         helper : ( List a, List a ) -> Maybe ( List a, a, List a )
         helper ( a, b ) =
@@ -15,7 +15,7 @@ splitOut predicate list =
                 _ ->
                     Nothing
     in
-    List.Extra.splitWhen predicate list |> Maybe.andThen helper
+    List.Extra.splitWhen predicate >> Maybe.andThen helper
 
 
 maybeUpdateField : (a -> Maybe b) -> a -> a -> Maybe b
