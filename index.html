@@ -33,6 +33,14 @@
 
     .bids { text-align: right; }
     .highest { text-align: right; }
+
+    .shake { animation: shake .3s; }
+
+    @keyframes shake {
+      from, to { transform: translate3d(0, 0, 0); }
+      20%, 60% { transform: translate3d(-10px, 0, 0); }
+      40%, 80% { transform: translate3d(10px, 0, 0); }
+    }
   </style>
 
   <script src="sniper.js"></script>
