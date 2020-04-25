@@ -172,6 +172,31 @@ updateEndingSoon state page domains =
     Cmd.batch [ fetchDomains domainsToFetch, fetchNext ]
 
 
+chooseDomainsToRefresh : Time.Posix -> State -> Cmd Msg
+chooseDomainsToRefresh time state =
+    let
+        shouldGetDomain : Int -> ( Int, Domain ) -> Maybe Domain
+        shouldGetDomain mins ( seq, domain ) =
+            if Basics.modBy seq mins == 0 then
+                Just domain
+
+            else
+                Nothing
+
+        domainsWhoseTimeIsRipe : Int -> List Domain
+        domainsWhoseTimeIsRipe mins =
+            List.concatMap (\dab -> dab.domains) state.domainsAtBlock
+                |> List.map (\d -> ( d.reveal - currentBlock state, d ))
+                |> List.filterMap (shouldGetDomain mins)
+
+        refreshDomains : List Domain
+        refreshDomains =
+            -- add 1 to have minutes 1-60 instead of 0-59
+            domainsWhoseTimeIsRipe (1 + Time.toMinute Time.utc time)
+    in
+    Task.succeed (FetchDomains refreshDomains) |> Task.perform identity
+
+
 
 -- convert from api to domain
 
@@ -200,22 +225,6 @@ detailsToDomain d =
 -- state operations
 
 
-domainsWhoseTimeIsRipe : State -> Int -> List Domain
-domainsWhoseTimeIsRipe state mins =
-    let
-        shouldGetDomain : ( Int, Domain ) -> Maybe Domain
-        shouldGetDomain ( seq, domain ) =
-            if Basics.modBy seq mins == 0 then
-                Just domain
-
-            else
-                Nothing
-    in
-    List.concatMap (\dab -> dab.domains) state.domainsAtBlock
-        |> List.map (\d -> ( d.reveal - currentBlock state, d ))
-        |> List.filterMap shouldGetDomain
-
-
 updateStateEndingSoon : State -> Int -> List Domain -> State
 updateStateEndingSoon state lastBlock newDomains =
     let
@@ -239,11 +248,11 @@ updateStateEndingSoon state lastBlock newDomains =
 
 
 updateStateDomainDetails : DomainUpdate -> Int -> Domain -> State -> State
-updateStateDomainDetails updateFun lastBlock domain state =
+updateStateDomainDetails domainUpdate lastBlock domain state =
     State lastBlock <|
         List.Extra.dropWhile
             (\dab -> dab.block < nextBlock lastBlock)
-            (replaceDabs state.domainsAtBlock domain updateFun)
+            (replaceDabs state.domainsAtBlock domain domainUpdate)
 
 
 setRefreshing : List Domain -> State -> State
@@ -274,14 +283,18 @@ getNewState model =
             updateStateEndingSoon initialState
 
 
-mapModel : Model -> (State -> State) -> Model
-mapModel model fun =
+mapSuccessfulModel : Model -> (State -> ( State, Cmd msg )) -> ( Model, Cmd msg )
+mapSuccessfulModel model stateUpdate =
     case model of
         Success state ->
-            Success <| fun state
+            let
+                ( newState, cmd ) =
+                    stateUpdate state
+            in
+            ( Success <| newState, cmd )
 
         _ ->
-            Failure
+            ( Failure, Cmd.none )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -315,45 +328,34 @@ update msg model =
                     ( Failure, Cmd.none )
 
         ChooseDomainsToFetch time ->
-            case model of
-                Success state ->
-                    let
-                        refreshDomains : List Domain
-                        refreshDomains =
-                            -- add 1 to have minutes 1-60 instead of 0-59
-                            domainsWhoseTimeIsRipe state
-                                (1 + Time.toMinute Time.utc time)
-                    in
-                    ( model
-                    , Task.perform
-                        (always (FetchDomains refreshDomains))
-                        (Task.succeed ())
+            mapSuccessfulModel model
+                (\state ->
+                    ( state
+                    , chooseDomainsToRefresh time state
                     )
-
-                _ ->
-                    ( model, Cmd.none )
+                )
 
         FetchDomains refreshDomains ->
-            case model of
-                Success state ->
-                    ( Success <| setRefreshing refreshDomains state, fetchDomains refreshDomains )
-
-                _ ->
-                    ( model, Cmd.none )
+            mapSuccessfulModel model
+                (\state ->
+                    ( setRefreshing refreshDomains state
+                    , fetchDomains refreshDomains
+                    )
+                )
 
         GotDomainDetails result ->
             case result of
                 Ok domainDetails ->
-                    ( mapModel model
+                    mapSuccessfulModel model
                         (\state ->
-                            updateStateDomainDetails
+                            ( updateStateDomainDetails
                                 (updateDomain Refreshed)
                                 (chooseLastBlock state domainDetails.lastBlock)
                                 (detailsToDomain domainDetails)
                                 state
+                            , Cmd.none
+                            )
                         )
-                    , Cmd.none
-                    )
 
                 Err _ ->
                     ( model, Cmd.none )
