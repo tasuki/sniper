@@ -188,7 +188,12 @@ endingSoonToDomains es =
 
 detailsToDomain : AC.DomainDetails -> Domain
 detailsToDomain d =
-    Domain d.name d.revealAt (Just <| List.length d.bids) (Just d.highestBid) Refreshed
+    Domain
+        d.name
+        d.revealAt
+        (Just <| List.length d.bids)
+        (Just d.highestBid)
+        Refreshed
 
 
 
@@ -316,9 +321,14 @@ update msg model =
                         refreshDomains : List Domain
                         refreshDomains =
                             -- add 1 to have minutes 1-60 instead of 0-59
-                            domainsWhoseTimeIsRipe state (1 + Time.toMinute Time.utc time)
+                            domainsWhoseTimeIsRipe state
+                                (1 + Time.toMinute Time.utc time)
                     in
-                    ( model, Task.perform (always (FetchDomains refreshDomains)) (Task.succeed ()) )
+                    ( model
+                    , Task.perform
+                        (always (FetchDomains refreshDomains))
+                        (Task.succeed ())
+                    )
 
                 _ ->
                     ( model, Cmd.none )
@@ -433,8 +443,14 @@ viewSection : State -> DomainsAtBlock -> Html Msg
 viewSection state dab =
     div [ class "pure-g section" ]
         [ div [ class "pure-u-6-24 block it gray" ]
-            [ divWrap <| text <| "<" ++ (String.fromInt <| timeLeft state dab.block) ++ " min left" ]
-        , div [ class "pure-u-4-24 block it gray" ] [ divWrap <| text <| String.fromInt <| dab.block ]
+            [ divWrap <|
+                text <|
+                    "<"
+                        ++ (String.fromInt <| timeLeft state dab.block)
+                        ++ " min left"
+            ]
+        , div [ class "pure-u-4-24 block it gray" ]
+            [ divWrap <| text <| String.fromInt <| dab.block ]
         , div [ class "pure-u-14-24 domains" ] (List.map viewDomain dab.domains)
         ]
 
@@ -448,7 +464,9 @@ viewModel model =
             ]
 
         Failure ->
-            [ h2 [] [ text "Could not load the list of auctioned domains. Something's wrong :(" ]
+            [ h2 []
+                [ text "Could not load the list of auctioned domains. Something's wrong :("
+                ]
             , button [ onClick FetchEndingSoon ] [ text "Try Again!" ]
             ]
 

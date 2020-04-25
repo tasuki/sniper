@@ -90,7 +90,11 @@ mergeDomainLists oldDomains newDomains =
 
         maybeUpdateDomain : String -> Domain
         maybeUpdateDomain name =
-            case ( Dict.get name oldDomainsDict, Dict.get name newDomainsDict ) of
+            case
+                ( Dict.get name oldDomainsDict
+                , Dict.get name newDomainsDict
+                )
+            of
                 ( Just old, Just new ) ->
                     updateDomain old.state old new
 
@@ -117,7 +121,8 @@ replaceDomain dab newDomain updateFun =
             dab
 
         Just ( before, oldDomain, after ) ->
-            DomainsAtBlock dab.block (before ++ updateFun oldDomain newDomain :: after)
+            DomainsAtBlock dab.block
+                (before ++ updateFun oldDomain newDomain :: after)
 
 
 replaceDabs : List DomainsAtBlock -> Domain -> DomainUpdate -> List DomainsAtBlock
@@ -126,8 +131,8 @@ replaceDabs dabs domain updateFun =
         Nothing ->
             dabs
 
-        Just ( before, found, after ) ->
-            before ++ replaceDomain found domain updateFun :: after
+        Just ( before, dab, after ) ->
+            before ++ replaceDomain dab domain updateFun :: after
 
 
 domainsWithoutHighestBid : List DomainsAtBlock -> List Domain
