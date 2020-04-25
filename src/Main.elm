@@ -20,6 +20,7 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import List.Extra
 import Set exposing (Set)
+import Task
 import Time
 
 
@@ -44,7 +45,7 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
         [ Time.every (minutes 10) RefetchEndingSoon
-        , Time.every (minutes 1) FetchDomainDetails
+        , Time.every (minutes 1) ChooseDomainsToFetch
         ]
 
 
@@ -114,7 +115,8 @@ type Msg
     = FetchEndingSoon
     | RefetchEndingSoon Time.Posix
     | GotEndingSoon Int AC.EndingSoonResult
-    | FetchDomainDetails Time.Posix
+    | ChooseDomainsToFetch Time.Posix
+    | FetchDomains (List Domain)
     | GotDomainDetails AC.DomainDetailsResult
 
 
@@ -307,16 +309,24 @@ update msg model =
                 Err _ ->
                     ( Failure, Cmd.none )
 
-        FetchDomainDetails time ->
+        ChooseDomainsToFetch time ->
             case model of
                 Success state ->
                     let
-                        refreshing : List Domain
-                        refreshing =
+                        refreshDomains : List Domain
+                        refreshDomains =
                             -- add 1 to have minutes 1-60 instead of 0-59
                             domainsWhoseTimeIsRipe state (1 + Time.toMinute Time.utc time)
                     in
-                    ( Success <| setRefreshing refreshing state, fetchDomains refreshing )
+                    ( model, Task.perform (always (FetchDomains refreshDomains)) (Task.succeed ()) )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        FetchDomains refreshDomains ->
+            case model of
+                Success state ->
+                    ( Success <| setRefreshing refreshDomains state, fetchDomains refreshDomains )
 
                 _ ->
                     ( model, Cmd.none )
