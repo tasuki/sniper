@@ -10,6 +10,7 @@ import Domains
         , ElementState(..)
         , domainsWithoutHighestBid
         , getDomainsAtBlocks
+        , hideBlocks
         , mergeDomainLists
         , replaceDabs
         , setDomainState
@@ -18,7 +19,6 @@ import Domains
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
-import List.Extra
 import Set exposing (Set)
 import Task
 import Time
@@ -231,28 +231,33 @@ updateStateEndingSoon state lastBlock newDomains =
         newLastBlock =
             chooseLastBlock state lastBlock
 
-        showBlocks : Int -> List Int
-        showBlocks block =
-            List.range (nextBlock block) (nextBlock block + blocksToDisplay - 1)
-
         oldDomains : List Domain
         oldDomains =
             List.concatMap .domains state.domainsAtBlock
+
+        showBlocks : Int -> List Int
+        showBlocks block =
+            -- start from the previous last block to hide gracefully
+            List.range state.lastBlock (nextBlock block + blocksToDisplay - 1)
 
         allDomains : List Domain
         allDomains =
             mergeDomainLists oldDomains newDomains
     in
-    getDomainsAtBlocks allDomains (showBlocks newLastBlock)
-        |> State newLastBlock
+    State newLastBlock <|
+        hideBlocks newLastBlock <|
+            getDomainsAtBlocks allDomains (showBlocks newLastBlock)
 
 
-updateStateDomainDetails : DomainUpdate -> Int -> Domain -> State -> State
-updateStateDomainDetails domainUpdate lastBlock domain state =
-    State lastBlock <|
-        List.Extra.dropWhile
-            (\dab -> dab.block < nextBlock lastBlock)
-            (replaceDabs state.domainsAtBlock domain domainUpdate)
+updateStateDomainDetails : State -> Int -> Domain -> State
+updateStateDomainDetails state lastBlock domain =
+    let
+        newLastBlock =
+            chooseLastBlock state lastBlock
+    in
+    State newLastBlock <|
+        hideBlocks newLastBlock
+            (replaceDabs state.domainsAtBlock domain (updateDomain Refreshed))
 
 
 setRefreshing : List Domain -> State -> State
@@ -349,10 +354,9 @@ update msg model =
                     mapSuccessfulModel model
                         (\state ->
                             ( updateStateDomainDetails
-                                (updateDomain Refreshed)
-                                (chooseLastBlock state domainDetails.lastBlock)
-                                (detailsToDomain domainDetails)
                                 state
+                                domainDetails.lastBlock
+                                (detailsToDomain domainDetails)
                             , Cmd.none
                             )
                         )

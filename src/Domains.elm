@@ -5,6 +5,7 @@ module Domains exposing
     , ElementState(..)
     , domainsWithoutHighestBid
     , getDomainsAtBlocks
+    , hideBlocks
     , mergeDomainLists
     , replaceDabs
     , setDomainState
@@ -12,6 +13,7 @@ module Domains exposing
     )
 
 import Dict exposing (Dict)
+import List.Extra
 import Set exposing (Set)
 import Util
 
@@ -28,6 +30,7 @@ type alias Domain =
 type alias DomainsAtBlock =
     { block : Int
     , domains : List Domain
+    , state : ElementState
     }
 
 
@@ -123,6 +126,7 @@ replaceDomain dab newDomain updateFun =
         Just ( before, oldDomain, after ) ->
             DomainsAtBlock dab.block
                 (before ++ updateFun oldDomain newDomain :: after)
+                dab.state
 
 
 replaceDabs : List DomainsAtBlock -> Domain -> DomainUpdate -> List DomainsAtBlock
@@ -146,6 +150,14 @@ getDomainsAtBlocks domains =
     let
         getBlock : Int -> List Domain -> DomainsAtBlock
         getBlock block =
-            List.filter (\d -> d.reveal == block) >> DomainsAtBlock block
+            List.filter (\d -> d.reveal == block)
+                >> (\dab -> DomainsAtBlock block dab New)
     in
     List.map (\d -> getBlock d domains)
+
+
+hideBlocks : Int -> List DomainsAtBlock -> List DomainsAtBlock
+hideBlocks lastBlock dabs =
+    List.Extra.dropWhile
+        (\dab -> dab.block < lastBlock + 2)
+        dabs
