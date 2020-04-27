@@ -421,19 +421,20 @@ viewModel model =
 viewState : State -> List (Html Msg)
 viewState state =
     [ div [ class "pure-g topbar" ]
-        [ div [ class "pure-u-10-24 block it gray" ]
+        [ div [ class "pure-u-8-24 block it gray" ]
             [ Util.divWrap <| text <| String.fromInt state.lastBlock
             ]
-        , div [ class "pure-u-14-24 gray" ] [ text "<- blockchain height" ]
-        , div [ class "pure-u-10-24 block it gray" ]
+        , div [ class "pure-u-16-24 gray" ] [ text "<- blockchain height" ]
+        , div [ class "pure-u-8-24 block it gray" ]
             [ Util.divWrap <| text <| String.fromInt (currentBlock state)
             ]
-        , div [ class "pure-u-14-24 gray" ] [ text "<- currently mined block" ]
+        , div [ class "pure-u-16-24 gray" ] [ text "<- currently mined block" ]
         ]
     , div [ class "pure-g header" ]
-        [ div [ class "pure-u-10-24 block" ] [ Util.divWrap <| text "Block" ]
-        , div [ class "pure-u-14-24" ]
-            [ div [ class className ] [ text "Domain name" ]
+        [ div [ class "pure-u-8-24 block" ] [ Util.divWrap <| text "Block" ]
+        , div [ class "pure-u-16-24" ]
+            [ div [ class classG ] [ text "G" ]
+            , div [ class className ] [ text "Domain name" ]
             , div [ class classBids ] [ text "Bids" ]
             , div [ class classHighest ] [ text "High bid" ]
             ]

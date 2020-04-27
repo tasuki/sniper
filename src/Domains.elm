@@ -4,6 +4,7 @@ module Domains exposing
     , DomainUpdate
     , ElementState(..)
     , classBids
+    , classG
     , classHighest
     , className
     , domainsWithoutHighestBid
@@ -197,16 +198,20 @@ removeHidden =
 -- VIEW
 
 
+classG =
+    "pure-u-2-24 g"
+
+
 className =
     "pure-u-14-24 name"
 
 
 classBids =
-    "pure-u-4-24 bids"
+    "pure-u-3-24 bids"
 
 
 classHighest =
-    "pure-u-6-24 highest"
+    "pure-u-5-24 highest"
 
 
 displayMaybeNumber : Maybe Int -> String
@@ -248,9 +253,10 @@ domainState d =
 viewDomain : Domain -> Html msg
 viewDomain d =
     div [ class ("pure-g domain " ++ domainState d) ]
-        [ div [ class className ]
-            [ a [ href ("https://www.namebase.io/domains/" ++ d.name) ] [ text d.name ]
-            ]
+        [ div [ class classG ]
+            [ a [ href <| "https://www.google.com/search?q=" ++ d.name ] [ text "g" ] ]
+        , div [ class className ]
+            [ a [ href <| "https://www.namebase.io/domains/" ++ d.name ] [ text d.name ] ]
         , div [ class classBids ] [ text <| displayMaybeNumber d.bids ]
         , div [ class classHighest ] [ text <| displayBid d.highestBid ]
         ]
@@ -279,14 +285,14 @@ timeLeft chainHeight blockEndsAt =
 viewBlock : Int -> Block -> Html msg
 viewBlock chainHeight block =
     div [ class ("pure-g section " ++ blockState block) ]
-        [ div [ class "pure-u-6-24 block it gray" ]
+        [ div [ class "pure-u-5-24 block it gray" ]
             [ Util.divWrap <|
                 text <|
                     "<"
                         ++ (String.fromInt <| timeLeft chainHeight block.height)
                         ++ " min left"
             ]
-        , div [ class "pure-u-4-24 block it gray" ]
+        , div [ class "pure-u-3-24 block it gray" ]
             [ Util.divWrap <| text <| String.fromInt <| block.height ]
-        , div [ class "pure-u-14-24 domains" ] (List.map viewDomain block.domains)
+        , div [ class "pure-u-16-24 domains" ] (List.map viewDomain block.domains)
         ]
