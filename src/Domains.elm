@@ -3,6 +3,9 @@ module Domains exposing
     , Domain
     , DomainUpdate
     , ElementState(..)
+    , classBids
+    , classHighest
+    , className
     , domainsWithoutHighestBid
     , getDomainsAtBlocks
     , hideBlocks
@@ -12,12 +15,19 @@ module Domains exposing
     , replaceBlocks
     , setDomainState
     , updateDomain
+    , viewBlock
     )
 
 import Dict exposing (Dict)
+import Html exposing (..)
+import Html.Attributes exposing (..)
 import List.Extra
 import Set exposing (Set)
 import Util
+
+
+
+-- MODEL
 
 
 type alias Domain =
@@ -181,3 +191,97 @@ hideBlocks lastBlock =
 removeHidden : List Block -> List Block
 removeHidden =
     List.Extra.dropWhile (\block -> block.state == Hidden)
+
+
+
+-- VIEW
+
+
+className =
+    "pure-u-14-24 name"
+
+
+classBids =
+    "pure-u-4-24 bids"
+
+
+classHighest =
+    "pure-u-6-24 highest"
+
+
+displayMaybeNumber : Maybe Int -> String
+displayMaybeNumber =
+    Maybe.map String.fromInt >> Maybe.withDefault ""
+
+
+displayBid : Maybe Int -> String
+displayBid maybeBid =
+    let
+        bid =
+            Maybe.map (\n -> n // 10000) maybeBid
+                |> Maybe.map String.fromInt
+                |> Maybe.withDefault ""
+
+        integer =
+            String.slice 0 -2 bid
+
+        decimal =
+            String.right 2 bid
+    in
+    if String.length decimal == 2 then
+        integer ++ "." ++ decimal
+
+    else
+        ""
+
+
+domainState : Domain -> String
+domainState d =
+    case d.state of
+        Refreshed ->
+            "shake"
+
+        _ ->
+            ""
+
+
+viewDomain : Domain -> Html msg
+viewDomain d =
+    div [ class ("pure-g domain " ++ domainState d) ]
+        [ div [ class className ]
+            [ a [ href ("https://www.namebase.io/domains/" ++ d.name) ] [ text d.name ]
+            ]
+        , div [ class classBids ] [ text <| displayMaybeNumber d.bids ]
+        , div [ class classHighest ] [ text <| displayBid d.highestBid ]
+        ]
+
+
+blockState : Block -> String
+blockState block =
+    case block.state of
+        Hidden ->
+            "hide"
+
+        _ ->
+            ""
+
+
+timeLeft : Int -> Int -> Int
+timeLeft chainHeight blockEndsAt =
+    (blockEndsAt - chainHeight + 1) * 10
+
+
+viewBlock : Int -> Block -> Html msg
+viewBlock chainHeight block =
+    div [ class ("pure-g section " ++ blockState block) ]
+        [ div [ class "pure-u-6-24 block it gray" ]
+            [ Util.divWrap <|
+                text <|
+                    "<"
+                        ++ (String.fromInt <| timeLeft chainHeight block.height)
+                        ++ " min left"
+            ]
+        , div [ class "pure-u-4-24 block it gray" ]
+            [ Util.divWrap <| text <| String.fromInt <| block.height ]
+        , div [ class "pure-u-14-24 domains" ] (List.map viewDomain block.domains)
+        ]

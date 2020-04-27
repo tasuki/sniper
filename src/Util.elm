@@ -1,9 +1,11 @@
 module Util exposing
-    ( maybeUpdateField
+    ( divWrap
+    , maybeUpdateField
     , msgToCommand
     , splitOut
     )
 
+import Html exposing (Html, div)
 import List.Extra
 import Task
 
@@ -36,3 +38,8 @@ maybeUpdateField field old new =
 msgToCommand : msg -> Cmd msg
 msgToCommand =
     Task.succeed >> Task.perform identity
+
+
+divWrap : Html msg -> Html msg
+divWrap html =
+    div [] <| [ html ]

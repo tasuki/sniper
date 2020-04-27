@@ -2,22 +2,7 @@ module Main exposing (main)
 
 import ApiClient as AC
 import Browser
-import Domains
-    exposing
-        ( Block
-        , Domain
-        , DomainUpdate
-        , ElementState(..)
-        , domainsWithoutHighestBid
-        , getDomainsAtBlocks
-        , hideBlocks
-        , mergeDomainLists
-        , oldestBlockState
-        , removeHidden
-        , replaceBlocks
-        , setDomainState
-        , updateDomain
-        )
+import Domains exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -109,11 +94,6 @@ nextBlock lastBlock =
 chooseLastBlock : State -> Int -> Int
 chooseLastBlock state =
     Basics.max state.lastBlock
-
-
-timeLeft : State -> Int -> Int
-timeLeft state height =
-    (height - currentBlock state) * 10
 
 
 
@@ -420,96 +400,6 @@ view model =
         (viewModel model)
 
 
-divWrap : Html Msg -> Html Msg
-divWrap html =
-    div [] <| [ html ]
-
-
-nameClass =
-    "pure-u-14-24 name"
-
-
-bidsClass =
-    "pure-u-4-24 bids"
-
-
-highestClass =
-    "pure-u-6-24 highest"
-
-
-displayMaybeNumber : Maybe Int -> String
-displayMaybeNumber =
-    Maybe.map String.fromInt >> Maybe.withDefault ""
-
-
-displayBid : Maybe Int -> String
-displayBid maybeBid =
-    let
-        bid =
-            Maybe.map (\n -> n // 10000) maybeBid
-                |> Maybe.map String.fromInt
-                |> Maybe.withDefault ""
-
-        integer =
-            String.slice 0 -2 bid
-
-        decimal =
-            String.right 2 bid
-    in
-    if String.length decimal == 2 then
-        integer ++ "." ++ decimal
-
-    else
-        ""
-
-
-domainState : Domain -> String
-domainState d =
-    case d.state of
-        Refreshed ->
-            "shake"
-
-        _ ->
-            ""
-
-
-blockState : Block -> String
-blockState block =
-    case block.state of
-        Hidden ->
-            "hide"
-
-        _ ->
-            ""
-
-
-viewDomain : Domain -> Html Msg
-viewDomain d =
-    div [ class ("pure-g domain " ++ domainState d) ]
-        [ div [ class nameClass ]
-            [ a [ href ("https://www.namebase.io/domains/" ++ d.name) ] [ text d.name ]
-            ]
-        , div [ class bidsClass ] [ text <| displayMaybeNumber d.bids ]
-        , div [ class highestClass ] [ text <| displayBid d.highestBid ]
-        ]
-
-
-viewBlock : State -> Block -> Html Msg
-viewBlock state block =
-    div [ class ("pure-g section " ++ blockState block) ]
-        [ div [ class "pure-u-6-24 block it gray" ]
-            [ divWrap <|
-                text <|
-                    "<"
-                        ++ (String.fromInt <| timeLeft state block.height)
-                        ++ " min left"
-            ]
-        , div [ class "pure-u-4-24 block it gray" ]
-            [ divWrap <| text <| String.fromInt <| block.height ]
-        , div [ class "pure-u-14-24 domains" ] (List.map viewDomain block.domains)
-        ]
-
-
 viewModel : Model -> List (Html Msg)
 viewModel model =
     case model of
@@ -528,21 +418,21 @@ viewModel model =
         Success state ->
             [ div [ class "pure-g topbar" ]
                 [ div [ class "pure-u-10-24 block it gray" ]
-                    [ divWrap <| text <| String.fromInt state.lastBlock
+                    [ Util.divWrap <| text <| String.fromInt state.lastBlock
                     ]
                 , div [ class "pure-u-14-24 gray" ] [ text "<- blockchain height" ]
                 , div [ class "pure-u-10-24 block it gray" ]
-                    [ divWrap <| text <| String.fromInt (currentBlock state)
+                    [ Util.divWrap <| text <| String.fromInt (currentBlock state)
                     ]
                 , div [ class "pure-u-14-24 gray" ] [ text "<- currently mined block" ]
                 ]
             , div [ class "pure-g header" ]
-                [ div [ class "pure-u-10-24 block" ] [ divWrap <| text "Block" ]
+                [ div [ class "pure-u-10-24 block" ] [ Util.divWrap <| text "Block" ]
                 , div [ class "pure-u-14-24" ]
-                    [ div [ class nameClass ] [ text "Domain name" ]
-                    , div [ class bidsClass ] [ text "Bids" ]
-                    , div [ class highestClass ] [ text "High bid" ]
+                    [ div [ class className ] [ text "Domain name" ]
+                    , div [ class classBids ] [ text "Bids" ]
+                    , div [ class classHighest ] [ text "High bid" ]
                     ]
                 ]
-            , div [] <| List.map (viewBlock state) state.domainsAtBlock
+            , div [] <| List.map (viewBlock state.lastBlock) state.domainsAtBlock
             ]
