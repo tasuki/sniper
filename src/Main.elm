@@ -409,30 +409,34 @@ viewModel model =
             ]
 
         Failure ->
-            [ h2 []
-                [ text "Could not load the list of auctioned domains. Something's wrong :("
-                ]
-            , button [ onClick FetchEndingSoon ] [ text "Try Again!" ]
+            [ h2 [] [ text " Something's wrong :(" ]
+            , p [] [ text "Could not load the list of auctioned domains." ]
+            , p [] [ button [ onClick FetchEndingSoon ] [ text "Try Again!" ] ]
             ]
 
         Success state ->
-            [ div [ class "pure-g topbar" ]
-                [ div [ class "pure-u-10-24 block it gray" ]
-                    [ Util.divWrap <| text <| String.fromInt state.lastBlock
-                    ]
-                , div [ class "pure-u-14-24 gray" ] [ text "<- blockchain height" ]
-                , div [ class "pure-u-10-24 block it gray" ]
-                    [ Util.divWrap <| text <| String.fromInt (currentBlock state)
-                    ]
-                , div [ class "pure-u-14-24 gray" ] [ text "<- currently mined block" ]
-                ]
-            , div [ class "pure-g header" ]
-                [ div [ class "pure-u-10-24 block" ] [ Util.divWrap <| text "Block" ]
-                , div [ class "pure-u-14-24" ]
-                    [ div [ class className ] [ text "Domain name" ]
-                    , div [ class classBids ] [ text "Bids" ]
-                    , div [ class classHighest ] [ text "High bid" ]
-                    ]
-                ]
-            , div [] <| List.map (viewBlock state.lastBlock) state.domainsAtBlock
+            viewState state
+
+
+viewState : State -> List (Html Msg)
+viewState state =
+    [ div [ class "pure-g topbar" ]
+        [ div [ class "pure-u-10-24 block it gray" ]
+            [ Util.divWrap <| text <| String.fromInt state.lastBlock
             ]
+        , div [ class "pure-u-14-24 gray" ] [ text "<- blockchain height" ]
+        , div [ class "pure-u-10-24 block it gray" ]
+            [ Util.divWrap <| text <| String.fromInt (currentBlock state)
+            ]
+        , div [ class "pure-u-14-24 gray" ] [ text "<- currently mined block" ]
+        ]
+    , div [ class "pure-g header" ]
+        [ div [ class "pure-u-10-24 block" ] [ Util.divWrap <| text "Block" ]
+        , div [ class "pure-u-14-24" ]
+            [ div [ class className ] [ text "Domain name" ]
+            , div [ class classBids ] [ text "Bids" ]
+            , div [ class classHighest ] [ text "High bid" ]
+            ]
+        ]
+    , div [] <| List.map (viewBlock state.lastBlock) state.domainsAtBlock
+    ]
