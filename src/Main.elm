@@ -12,6 +12,8 @@ import Domains
         , getDomainsAtBlocks
         , hideBlocks
         , mergeDomainLists
+        , oldestBlockState
+        , removeHidden
         , replaceDabs
         , setDomainState
         , updateDomain
@@ -19,9 +21,11 @@ import Domains
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+import Process
 import Set exposing (Set)
 import Task
 import Time
+import Util
 
 
 
@@ -34,6 +38,11 @@ blocksToDisplay =
 
 
 -- SUBSCRIPTIONS
+
+
+seconds : number -> number
+seconds secs =
+    secs * 1000
 
 
 minutes : number -> number
@@ -118,6 +127,7 @@ type Msg
     | ChooseDomainsToFetch Time.Posix
     | FetchDomains (List Domain)
     | GotDomainDetails AC.DomainDetailsResult
+    | RemoveEndedBlocks
 
 
 
@@ -153,6 +163,7 @@ updateEndingSoon state page domains =
         domainsToFetch : List Domain
         domainsToFetch =
             List.filter (\d -> Set.member d.name domainsWithoutHighest) domains
+                |> List.reverse
 
         maxFetched : Int
         maxFetched =
@@ -185,7 +196,10 @@ chooseDomainsToRefresh time state =
 
         domainsWhoseTimeIsRipe : Int -> List Domain
         domainsWhoseTimeIsRipe mins =
-            List.concatMap (\dab -> dab.domains) state.domainsAtBlock
+            state.domainsAtBlock
+                |> List.concatMap (\dab -> dab.domains)
+                -- prevent / 0
+                |> List.filter (\d -> d.reveal - currentBlock state > 0)
                 |> List.map (\d -> ( d.reveal - currentBlock state, d ))
                 |> List.filterMap (shouldGetDomain mins)
 
@@ -194,7 +208,16 @@ chooseDomainsToRefresh time state =
             -- add 1 to have minutes 1-60 instead of 0-59
             domainsWhoseTimeIsRipe (1 + Time.toMinute Time.utc time)
     in
-    Task.succeed (FetchDomains refreshDomains) |> Task.perform identity
+    Util.msgToCommand (FetchDomains refreshDomains)
+
+
+removeEndedBlocks : State -> Cmd Msg
+removeEndedBlocks state =
+    if oldestBlockState state.domainsAtBlock == Hidden then
+        Process.sleep (seconds 2) |> Task.perform (always RemoveEndedBlocks)
+
+    else
+        Cmd.none
 
 
 
@@ -228,6 +251,13 @@ detailsToDomain d =
 updateStateEndingSoon : State -> Int -> List Domain -> State
 updateStateEndingSoon state lastBlock newDomains =
     let
+        firstBlock : Int
+        firstBlock =
+            List.head state.domainsAtBlock
+                |> Maybe.map (\dab -> dab.block)
+                |> Maybe.withDefault (nextBlock lastBlock)
+
+        newLastBlock : Int
         newLastBlock =
             chooseLastBlock state lastBlock
 
@@ -237,8 +267,7 @@ updateStateEndingSoon state lastBlock newDomains =
 
         showBlocks : Int -> List Int
         showBlocks block =
-            -- start from the previous last block to hide gracefully
-            List.range state.lastBlock (nextBlock block + blocksToDisplay - 1)
+            List.range firstBlock (nextBlock block + blocksToDisplay - 1)
 
         allDomains : List Domain
         allDomains =
@@ -249,15 +278,15 @@ updateStateEndingSoon state lastBlock newDomains =
             getDomainsAtBlocks allDomains (showBlocks newLastBlock)
 
 
-updateStateDomainDetails : State -> Int -> Domain -> State
-updateStateDomainDetails state lastBlock domain =
+updateStateDomainDetails : Int -> Domain -> State -> State
+updateStateDomainDetails lastBlock domain state =
     let
         newLastBlock =
             chooseLastBlock state lastBlock
     in
     State newLastBlock <|
-        hideBlocks newLastBlock
-            (replaceDabs state.domainsAtBlock domain (updateDomain Refreshed))
+        hideBlocks newLastBlock <|
+            replaceDabs state.domainsAtBlock domain (updateDomain Refreshed)
 
 
 setRefreshing : List Domain -> State -> State
@@ -325,7 +354,10 @@ update msg model =
 
                         cmd : Cmd Msg
                         cmd =
-                            updateEndingSoon newState page domains
+                            Cmd.batch
+                                [ updateEndingSoon newState page domains
+                                , removeEndedBlocks newState
+                                ]
                     in
                     ( Success newState, cmd )
 
@@ -353,16 +385,29 @@ update msg model =
                 Ok domainDetails ->
                     mapSuccessfulModel model
                         (\state ->
-                            ( updateStateDomainDetails
-                                state
-                                domainDetails.lastBlock
-                                (detailsToDomain domainDetails)
-                            , Cmd.none
-                            )
+                            let
+                                newState =
+                                    updateStateDomainDetails
+                                        domainDetails.lastBlock
+                                        (detailsToDomain domainDetails)
+                                        state
+                            in
+                            ( newState, removeEndedBlocks newState )
                         )
 
                 Err _ ->
                     ( model, Cmd.none )
+
+        RemoveEndedBlocks ->
+            mapSuccessfulModel model
+                (\state ->
+                    ( { state
+                        | domainsAtBlock =
+                            removeHidden state.domainsAtBlock
+                      }
+                    , Cmd.none
+                    )
+                )
 
 
 
@@ -421,16 +466,20 @@ displayBid maybeBid =
 domainState : Domain -> String
 domainState d =
     case d.state of
-        New ->
-            ""
-
-        Refreshing ->
-            ""
-
         Refreshed ->
             "shake"
 
+        _ ->
+            ""
+
+
+blockState : DomainsAtBlock -> String
+blockState dab =
+    case dab.state of
         Hidden ->
+            "hide"
+
+        _ ->
             ""
 
 
@@ -447,7 +496,7 @@ viewDomain d =
 
 viewSection : State -> DomainsAtBlock -> Html Msg
 viewSection state dab =
-    div [ class "pure-g section" ]
+    div [ class ("pure-g section " ++ blockState dab) ]
         [ div [ class "pure-u-6-24 block it gray" ]
             [ divWrap <|
                 text <|

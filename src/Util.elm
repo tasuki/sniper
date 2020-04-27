@@ -1,6 +1,11 @@
-module Util exposing (maybeUpdateField, splitOut)
+module Util exposing
+    ( maybeUpdateField
+    , msgToCommand
+    , splitOut
+    )
 
 import List.Extra
+import Task
 
 
 splitOut : (a -> Bool) -> List a -> Maybe ( List a, a, List a )
@@ -26,3 +31,8 @@ maybeUpdateField field old new =
 
         ( _, f ) ->
             f
+
+
+msgToCommand : msg -> Cmd msg
+msgToCommand =
+    Task.succeed >> Task.perform identity

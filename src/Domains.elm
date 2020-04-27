@@ -7,6 +7,8 @@ module Domains exposing
     , getDomainsAtBlocks
     , hideBlocks
     , mergeDomainLists
+    , oldestBlockState
+    , removeHidden
     , replaceDabs
     , setDomainState
     , updateDomain
@@ -156,8 +158,27 @@ getDomainsAtBlocks domains =
     List.map (\d -> getBlock d domains)
 
 
+oldestBlockState : List DomainsAtBlock -> ElementState
+oldestBlockState dabs =
+    List.head dabs
+        |> Maybe.map .state
+        |> Maybe.withDefault New
+
+
 hideBlocks : Int -> List DomainsAtBlock -> List DomainsAtBlock
-hideBlocks lastBlock dabs =
-    List.Extra.dropWhile
-        (\dab -> dab.block < lastBlock + 2)
-        dabs
+hideBlocks lastBlock =
+    let
+        hideEarlierThan : Int -> DomainsAtBlock -> DomainsAtBlock
+        hideEarlierThan block dab =
+            if dab.block < block then
+                { dab | state = Hidden }
+
+            else
+                dab
+    in
+    List.map (hideEarlierThan (lastBlock + 2))
+
+
+removeHidden : List DomainsAtBlock -> List DomainsAtBlock
+removeHidden =
+    List.Extra.dropWhile (\dab -> dab.state == Hidden)
