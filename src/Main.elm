@@ -4,9 +4,9 @@ import ApiClient as AC
 import Browser
 import Domains
     exposing
-        ( Domain
+        ( Block
+        , Domain
         , DomainUpdate
-        , DomainsAtBlock
         , ElementState(..)
         , domainsWithoutHighestBid
         , getDomainsAtBlocks
@@ -14,7 +14,7 @@ import Domains
         , mergeDomainLists
         , oldestBlockState
         , removeHidden
-        , replaceDabs
+        , replaceBlocks
         , setDomainState
         , updateDomain
         )
@@ -77,7 +77,7 @@ main =
 
 type alias State =
     { lastBlock : Int
-    , domainsAtBlock : List DomainsAtBlock
+    , domainsAtBlock : List Block
     }
 
 
@@ -112,8 +112,8 @@ chooseLastBlock state =
 
 
 timeLeft : State -> Int -> Int
-timeLeft state block =
-    (block - currentBlock state) * 10
+timeLeft state height =
+    (height - currentBlock state) * 10
 
 
 
@@ -197,7 +197,7 @@ chooseDomainsToRefresh time state =
         domainsWhoseTimeIsRipe : Int -> List Domain
         domainsWhoseTimeIsRipe mins =
             state.domainsAtBlock
-                |> List.concatMap (\dab -> dab.domains)
+                |> List.concatMap (\block -> block.domains)
                 -- prevent / 0
                 |> List.filter (\d -> d.reveal - currentBlock state > 0)
                 |> List.map (\d -> ( d.reveal - currentBlock state, d ))
@@ -254,7 +254,7 @@ updateStateEndingSoon state lastBlock newDomains =
         firstBlock : Int
         firstBlock =
             List.head state.domainsAtBlock
-                |> Maybe.map (\dab -> dab.block)
+                |> Maybe.map .height
                 |> Maybe.withDefault (nextBlock lastBlock)
 
         newLastBlock : Int
@@ -266,8 +266,8 @@ updateStateEndingSoon state lastBlock newDomains =
             List.concatMap .domains state.domainsAtBlock
 
         showBlocks : Int -> List Int
-        showBlocks block =
-            List.range firstBlock (nextBlock block + blocksToDisplay - 1)
+        showBlocks height =
+            List.range firstBlock (nextBlock height + blocksToDisplay - 1)
 
         allDomains : List Domain
         allDomains =
@@ -286,17 +286,17 @@ updateStateDomainDetails lastBlock domain state =
     in
     State newLastBlock <|
         hideBlocks newLastBlock <|
-            replaceDabs state.domainsAtBlock domain (updateDomain Refreshed)
+            replaceBlocks state.domainsAtBlock domain (updateDomain Refreshed)
 
 
 setRefreshing : List Domain -> State -> State
 setRefreshing domains state =
     let
-        setState : Domain -> List DomainsAtBlock -> List DomainsAtBlock
-        setState d dab =
-            replaceDabs dab d (setDomainState Refreshing)
+        setState : Domain -> List Block -> List Block
+        setState d blocks =
+            replaceBlocks blocks d (setDomainState Refreshing)
 
-        newDabs : List DomainsAtBlock
+        newDabs : List Block
         newDabs =
             List.foldl setState state.domainsAtBlock domains
     in
@@ -473,9 +473,9 @@ domainState d =
             ""
 
 
-blockState : DomainsAtBlock -> String
-blockState dab =
-    case dab.state of
+blockState : Block -> String
+blockState block =
+    case block.state of
         Hidden ->
             "hide"
 
@@ -494,19 +494,19 @@ viewDomain d =
         ]
 
 
-viewSection : State -> DomainsAtBlock -> Html Msg
-viewSection state dab =
-    div [ class ("pure-g section " ++ blockState dab) ]
+viewBlock : State -> Block -> Html Msg
+viewBlock state block =
+    div [ class ("pure-g section " ++ blockState block) ]
         [ div [ class "pure-u-6-24 block it gray" ]
             [ divWrap <|
                 text <|
                     "<"
-                        ++ (String.fromInt <| timeLeft state dab.block)
+                        ++ (String.fromInt <| timeLeft state block.height)
                         ++ " min left"
             ]
         , div [ class "pure-u-4-24 block it gray" ]
-            [ divWrap <| text <| String.fromInt <| dab.block ]
-        , div [ class "pure-u-14-24 domains" ] (List.map viewDomain dab.domains)
+            [ divWrap <| text <| String.fromInt <| block.height ]
+        , div [ class "pure-u-14-24 domains" ] (List.map viewDomain block.domains)
         ]
 
 
@@ -544,5 +544,5 @@ viewModel model =
                     , div [ class highestClass ] [ text "High bid" ]
                     ]
                 ]
-            , div [] <| List.map (viewSection state) state.domainsAtBlock
+            , div [] <| List.map (viewBlock state) state.domainsAtBlock
             ]

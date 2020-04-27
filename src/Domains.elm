@@ -1,7 +1,7 @@
 module Domains exposing
-    ( Domain
+    ( Block
+    , Domain
     , DomainUpdate
-    , DomainsAtBlock
     , ElementState(..)
     , domainsWithoutHighestBid
     , getDomainsAtBlocks
@@ -9,7 +9,7 @@ module Domains exposing
     , mergeDomainLists
     , oldestBlockState
     , removeHidden
-    , replaceDabs
+    , replaceBlocks
     , setDomainState
     , updateDomain
     )
@@ -29,8 +29,8 @@ type alias Domain =
     }
 
 
-type alias DomainsAtBlock =
-    { block : Int
+type alias Block =
+    { height : Int
     , domains : List Domain
     , state : ElementState
     }
@@ -119,66 +119,65 @@ mergeDomainLists oldDomains newDomains =
 -- domains at block
 
 
-replaceDomain : DomainsAtBlock -> Domain -> DomainUpdate -> DomainsAtBlock
-replaceDomain dab newDomain updateFun =
-    case Util.splitOut (\d -> d.name == newDomain.name) dab.domains of
+replaceDomain : Block -> Domain -> DomainUpdate -> Block
+replaceDomain block newDomain updateFun =
+    case Util.splitOut (\d -> d.name == newDomain.name) block.domains of
         Nothing ->
-            dab
+            block
 
         Just ( before, oldDomain, after ) ->
-            DomainsAtBlock dab.block
+            Block block.height
                 (before ++ updateFun oldDomain newDomain :: after)
-                dab.state
+                block.state
 
 
-replaceDabs : List DomainsAtBlock -> Domain -> DomainUpdate -> List DomainsAtBlock
-replaceDabs dabs domain updateFun =
-    case Util.splitOut (\dab -> dab.block == domain.reveal) dabs of
+replaceBlocks : List Block -> Domain -> DomainUpdate -> List Block
+replaceBlocks blocks domain updateFun =
+    case Util.splitOut (\block -> block.height == domain.reveal) blocks of
         Nothing ->
-            dabs
+            blocks
 
-        Just ( before, dab, after ) ->
-            before ++ replaceDomain dab domain updateFun :: after
-
-
-domainsWithoutHighestBid : List DomainsAtBlock -> List Domain
-domainsWithoutHighestBid dabs =
-    List.concatMap .domains dabs
-        |> List.filter (\d -> d.highestBid == Nothing)
+        Just ( before, block, after ) ->
+            before ++ replaceDomain block domain updateFun :: after
 
 
-getDomainsAtBlocks : List Domain -> List Int -> List DomainsAtBlock
+domainsWithoutHighestBid : List Block -> List Domain
+domainsWithoutHighestBid =
+    List.concatMap .domains >> List.filter (\d -> d.highestBid == Nothing)
+
+
+getDomainsAtBlocks : List Domain -> List Int -> List Block
 getDomainsAtBlocks domains =
     let
-        getBlock : Int -> List Domain -> DomainsAtBlock
-        getBlock block =
-            List.filter (\d -> d.reveal == block)
-                >> (\dab -> DomainsAtBlock block dab New)
+        getBlock : List Domain -> Int -> Block
+        getBlock ds height =
+            List.filter (\d -> d.reveal == height) ds
+                |> (\block -> Block height block New)
     in
-    List.map (\d -> getBlock d domains)
+    List.map (getBlock domains)
 
 
-oldestBlockState : List DomainsAtBlock -> ElementState
-oldestBlockState dabs =
-    List.head dabs
+oldestBlockState : List Block -> ElementState
+oldestBlockState blocks =
+    List.head blocks
         |> Maybe.map .state
         |> Maybe.withDefault New
 
 
-hideBlocks : Int -> List DomainsAtBlock -> List DomainsAtBlock
+hideBlocks : Int -> List Block -> List Block
 hideBlocks lastBlock =
     let
-        hideEarlierThan : Int -> DomainsAtBlock -> DomainsAtBlock
-        hideEarlierThan block dab =
-            if dab.block < block then
-                { dab | state = Hidden }
+        hideEarlierThan : Int -> Block -> Block
+        hideEarlierThan height block =
+            if block.height < height then
+                { block | state = Hidden }
 
             else
-                dab
+                block
     in
     List.map (hideEarlierThan (lastBlock + 2))
 
 
-removeHidden : List DomainsAtBlock -> List DomainsAtBlock
+removeHidden : List Block -> List Block
 removeHidden =
-    List.Extra.dropWhile (\dab -> dab.state == Hidden)
+    List.Extra.dropWhile (\block -> block.state == Hidden)
