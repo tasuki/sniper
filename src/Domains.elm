@@ -199,15 +199,15 @@ removeHidden =
 
 
 classG =
-    "pure-u-2-24 g"
+    "pure-u-2-24 g gray"
 
 
 className =
-    "pure-u-14-24 name"
+    "pure-u-13-24 name"
 
 
 classBids =
-    "pure-u-3-24 bids"
+    "pure-u-2-24 bids"
 
 
 classHighest =
@@ -253,12 +253,16 @@ domainState d =
 viewDomain : Domain -> Html msg
 viewDomain d =
     div [ class ("pure-g domain " ++ domainState d) ]
-        [ div [ class classG ]
-            [ a [ href <| "https://www.google.com/search?q=" ++ d.name ] [ text "g" ] ]
-        , div [ class className ]
+        [ div [ class className ]
             [ a [ href <| "https://www.namebase.io/domains/" ++ d.name ] [ text d.name ] ]
-        , div [ class classBids ] [ text <| displayMaybeNumber d.bids ]
-        , div [ class classHighest ] [ text <| displayBid d.highestBid ]
+        , div [ class classG ]
+            [ text "♥" ]
+        , div [ class classG ]
+            [ a [ href <| "https://www.google.com/search?q=" ++ d.name ] [ text "G" ] ]
+        , div [ class classBids ]
+            [ text <| displayMaybeNumber d.bids ]
+        , div [ class classHighest ]
+            [ text <| displayBid d.highestBid ]
         ]
 
 
