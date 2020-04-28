@@ -1,11 +1,13 @@
 module Util exposing
     ( divWrap
+    , divWrapClass
     , maybeUpdateField
     , msgToCommand
     , splitOut
     )
 
 import Html exposing (Html, div)
+import Html.Attributes exposing (class)
 import List.Extra
 import Task
 
@@ -43,3 +45,8 @@ msgToCommand =
 divWrap : Html msg -> Html msg
 divWrap html =
     div [] <| [ html ]
+
+
+divWrapClass : String -> Html msg -> Html msg
+divWrapClass cls html =
+    div [ class <| cls ] <| [ html ]

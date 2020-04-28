@@ -25,17 +25,22 @@
     .header { font-weight: bold; padding: 10px 0px; }
     .section { border-top: 1px solid #333; padding: 10px 0px; }
 
-    .domain, .domainHeader { padding: 2px 6px; }
-    .domain .g { visibility: hidden; }
-    .domain:hover .g { visibility: visible; }
+    .domain-header .h div, .domain-header .g div { padding: 0px 10px; }
+
+    .domain, .domain-header { padding: 2px 8px; }
+    .domain .h { color: #888; visibility: hidden; }
+    .domain .g { color: #888; visibility: hidden; }
+    .domain:hover .g, .domain:hover .h { visibility: visible; }
     .domain:hover { background-color: #292929; }
 
     .it { font-style: italic; }
     .gray { color: #888; }
-    .g a { color: #888; }
+    .h a, .g a { color: #888; padding: 0px 10px; }
+    .h a:hover { color: #C33; text-decoration: none; }
+    .g a:hover { color: #48F; text-decoration: none; }
 
     .block { text-align: right; }
-    .block div { padding-right: 30px; }
+    .block div { padding: 2px 20px 2px 8px; }
 
     .bids { text-align: right; }
     .highest { text-align: right; }
@@ -43,8 +48,8 @@
     .shake { animation: shake .3s; }
     @keyframes shake {
       from, to { transform: translate3d(0, 0, 0); }
-      20%, 60% { transform: translate3d(-10px, 0, 0); }
-      40%, 80% { transform: translate3d(10px, 0, 0); }
+      20%, 60% { transform: translate3d(-5px, 0, 0); }
+      40%, 80% { transform: translate3d( 5px, 0, 0); }
     }
 
     .hide { animation: flashHide 2s forwards; }

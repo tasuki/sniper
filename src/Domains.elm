@@ -5,7 +5,10 @@ module Domains exposing
     , ElementState(..)
     , Height
     , classBids
+    , classBlock
+    , classDomains
     , classG
+    , classH
     , classHighest
     , className
     , currentBlock
@@ -205,8 +208,20 @@ removeHidden =
 -- VIEW
 
 
+classBlock =
+    "pure-u-7-24 block"
+
+
+classDomains =
+    "pure-u-17-24"
+
+
 classG =
-    "pure-u-2-24 g gray"
+    "pure-u-2-24 g"
+
+
+classH =
+    "pure-u-2-24 h"
 
 
 className =
@@ -277,8 +292,8 @@ viewDomain d =
     div [ class ("pure-g domain " ++ domainState d) ]
         [ div [ class className ]
             [ a [ href <| "https://www.namebase.io/domains/" ++ d.name ] [ text d.name ] ]
-        , div [ class classG ]
-            [ text "♥" ]
+        , div [ class classH ]
+            [ a [ href <| "#" ] [ text "❤" ] ]
         , div [ class classG ]
             [ a [ href <| "https://www.google.com/search?q=" ++ d.name ] [ text "G" ] ]
         , div [ class classBids ]
@@ -298,17 +313,24 @@ blockState block =
             ""
 
 
+minutesLeft : Height -> Height -> String
+minutesLeft chainHeight blockHeight =
+    "<" ++ (String.fromInt <| timeLeft chainHeight blockHeight) ++ " min left \u{00A0} "
+
+
+minutesLeftDiv : Height -> Height -> Html msg
+minutesLeftDiv chainHeight blockHeight =
+    Util.divWrap <|
+        text <|
+            minutesLeft chainHeight blockHeight
+                ++ (String.fromInt <| blockHeight)
+
+
 viewBlock : Height -> Block -> Html msg
 viewBlock chainHeight block =
     div [ class ("pure-g section " ++ blockState block) ]
-        [ div [ class "pure-u-5-24 block it gray" ]
-            [ Util.divWrap <|
-                text <|
-                    "<"
-                        ++ (String.fromInt <| timeLeft chainHeight block.height)
-                        ++ " min left"
-            ]
-        , div [ class "pure-u-3-24 block it gray" ]
-            [ Util.divWrap <| text <| String.fromInt <| block.height ]
-        , div [ class "pure-u-16-24 domains" ] (List.map viewDomain block.domains)
+        [ div [ class <| classBlock ++ " it gray" ]
+            [ minutesLeftDiv chainHeight block.height ]
+        , div [ class <| classDomains ]
+            (List.map viewDomain block.domains)
         ]
