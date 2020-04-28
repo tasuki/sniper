@@ -284,7 +284,7 @@ flipFave domain state =
     let
         newDabs : List Block
         newDabs =
-            replaceBlocks state.domainsAtBlock domain flipFaveFlag
+            replaceSortedBlocks state.domainsAtBlock domain flipFaveFlag
     in
     { state | domainsAtBlock = newDabs }
 

@@ -21,6 +21,7 @@ module Domains exposing
     , oldestBlockState
     , removeHidden
     , replaceBlocks
+    , replaceSortedBlocks
     , setDomainState
     , updateDomain
     , viewBlock
@@ -107,6 +108,36 @@ domainsToDict =
     List.map (\d -> ( d.name, d )) >> Dict.fromList
 
 
+by : (a -> comparable) -> (a -> a -> Order)
+by toCmp a b =
+    compare (toCmp a) (toCmp b)
+
+
+andThen : (a -> comparable) -> (a -> a -> Order) -> (a -> a -> Order)
+andThen toCmp primary a b =
+    case primary a b of
+        EQ ->
+            by toCmp a b
+
+        ineq ->
+            ineq
+
+
+compareByFaved : Domain -> number
+compareByFaved domain =
+    case domain.faved of
+        True ->
+            0
+
+        False ->
+            1
+
+
+sortDomains : List Domain -> List Domain
+sortDomains =
+    List.sortWith (by compareByFaved |> andThen .name)
+
+
 mergeDomainLists : List Domain -> List Domain -> List Domain
 mergeDomainLists oldDomains newDomains =
     let
@@ -141,11 +172,18 @@ mergeDomainLists oldDomains newDomains =
                 ( _, _ ) ->
                     emptyDomain
     in
-    Set.toList allDomainNames |> List.map maybeUpdateDomain |> List.sortBy .name
+    Set.toList allDomainNames
+        |> List.map maybeUpdateDomain
+        |> sortDomains
 
 
 
--- domains at block
+-- blocks
+
+
+sortBlock : Block -> Block
+sortBlock block =
+    { block | domains = sortDomains block.domains }
 
 
 replaceDomain : Block -> Domain -> DomainUpdate -> Block
@@ -158,6 +196,16 @@ replaceDomain block newDomain updateFun =
             Block block.height
                 (before ++ updateFun oldDomain newDomain :: after)
                 block.state
+
+
+replaceSortedBlocks : List Block -> Domain -> DomainUpdate -> List Block
+replaceSortedBlocks blocks domain updateFun =
+    case Util.splitOut (\block -> block.height == domain.reveal) blocks of
+        Nothing ->
+            blocks
+
+        Just ( before, block, after ) ->
+            before ++ sortBlock (replaceDomain block domain updateFun) :: after
 
 
 replaceBlocks : List Block -> Domain -> DomainUpdate -> List Block
