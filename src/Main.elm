@@ -98,6 +98,7 @@ type Msg
     | FetchDomains (List Domain)
     | GotDomainDetails AC.DomainDetailsResult
     | RemoveEndedBlocks
+    | FlipFave Domain
 
 
 
@@ -197,7 +198,13 @@ endingSoonToDomains es =
     let
         toDomain : AC.EndingSoonDomain -> Domain
         toDomain esd =
-            Domain esd.name esd.revealAt (Just esd.bids) Nothing New
+            Domain
+                esd.name
+                esd.revealAt
+                (Just esd.bids)
+                Nothing
+                New
+                False
     in
     List.map toDomain es.domains
 
@@ -210,6 +217,7 @@ detailsToDomain d =
         (Just <| List.length d.bids)
         (Just d.highestBid)
         Refreshed
+        False
 
 
 
@@ -267,6 +275,16 @@ setRefreshing domains state =
         newDabs : List Block
         newDabs =
             List.foldl setState state.domainsAtBlock domains
+    in
+    { state | domainsAtBlock = newDabs }
+
+
+flipFave : Domain -> State -> State
+flipFave domain state =
+    let
+        newDabs : List Block
+        newDabs =
+            replaceBlocks state.domainsAtBlock domain flipFaveFlag
     in
     { state | domainsAtBlock = newDabs }
 
@@ -377,6 +395,10 @@ update msg model =
                     )
                 )
 
+        FlipFave domain ->
+            mapSuccessfulModel model
+                (\state -> ( flipFave domain state, Cmd.none ))
+
 
 
 -- VIEW
@@ -431,5 +453,5 @@ viewState state =
                 ]
             ]
         ]
-    , div [] <| List.map (viewBlock state.lastBlock) state.domainsAtBlock
+    , div [] <| List.map (viewBlock FlipFave state.lastBlock) state.domainsAtBlock
     ]

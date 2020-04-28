@@ -13,6 +13,7 @@ module Domains exposing
     , className
     , currentBlock
     , domainsWithoutHighestBid
+    , flipFaveFlag
     , getDomainsAtBlocks
     , hideBlocks
     , mergeDomainLists
@@ -28,6 +29,7 @@ module Domains exposing
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Html.Events exposing (onClick)
 import List.Extra
 import Set exposing (Set)
 import Util
@@ -43,6 +45,7 @@ type alias Domain =
     , bids : Maybe Int
     , highestBid : Maybe Int
     , state : ElementState
+    , faved : Bool
     }
 
 
@@ -74,7 +77,7 @@ type ElementState
 
 emptyDomain : Domain
 emptyDomain =
-    Domain "" 0 Nothing Nothing Hidden
+    Domain "" 0 Nothing Nothing Hidden False
 
 
 updateDomain : ElementState -> DomainUpdate
@@ -86,12 +89,17 @@ updateDomain state old new =
         highestBid =
             Util.maybeUpdateField .highestBid old new
     in
-    Domain new.name new.reveal bids highestBid state
+    Domain new.name new.reveal bids highestBid state old.faved
 
 
 setDomainState : ElementState -> DomainUpdate
 setDomainState state old _ =
     { old | state = state }
+
+
+flipFaveFlag : DomainUpdate
+flipFaveFlag old _ =
+    { old | faved = not old.faved }
 
 
 domainsToDict : List Domain -> Dict String Domain
@@ -287,13 +295,22 @@ domainState d =
             ""
 
 
-viewDomain : Domain -> Html msg
-viewDomain d =
+classFaved : Domain -> String
+classFaved d =
+    if d.faved then
+        " faved"
+
+    else
+        ""
+
+
+viewDomain : (Domain -> msg) -> Domain -> Html msg
+viewDomain faveAction d =
     div [ class ("pure-g domain " ++ domainState d) ]
         [ div [ class className ]
             [ a [ href <| "https://www.namebase.io/domains/" ++ d.name ] [ text d.name ] ]
-        , div [ class classH ]
-            [ a [ href <| "#" ] [ text "❤" ] ]
+        , div [ class (classH ++ classFaved d) ]
+            [ a [ onClick (faveAction d) ] [ text "❤" ] ]
         , div [ class classG ]
             [ a [ href <| "https://www.google.com/search?q=" ++ d.name ] [ text "G" ] ]
         , div [ class classBids ]
@@ -326,11 +343,11 @@ minutesLeftDiv chainHeight blockHeight =
                 ++ (String.fromInt <| blockHeight)
 
 
-viewBlock : Height -> Block -> Html msg
-viewBlock chainHeight block =
+viewBlock : (Domain -> msg) -> Height -> Block -> Html msg
+viewBlock faveAction chainHeight block =
     div [ class ("pure-g section " ++ blockState block) ]
         [ div [ class <| classBlock ++ " it gray" ]
             [ minutesLeftDiv chainHeight block.height ]
         , div [ class <| classDomains ]
-            (List.map viewDomain block.domains)
+            (List.map (viewDomain faveAction) block.domains)
         ]
