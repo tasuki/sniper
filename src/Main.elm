@@ -62,7 +62,7 @@ main =
 
 type alias State =
     { lastBlock : Height
-    , domainsAtBlock : List Block
+    , blocks : List Block
     }
 
 
@@ -127,7 +127,7 @@ updateEndingSoon state page domains =
     let
         domainsWithoutHighest : Set String
         domainsWithoutHighest =
-            domainsWithoutHighestBid state.domainsAtBlock
+            domainsWithoutHighestBid state.blocks
                 |> List.map .name
                 |> Set.fromList
 
@@ -167,7 +167,7 @@ chooseDomainsToRefresh time state =
 
         domainsWhoseTimeIsRipe : Int -> List Domain
         domainsWhoseTimeIsRipe mins =
-            state.domainsAtBlock
+            state.blocks
                 |> List.concatMap (\block -> block.domains)
                 |> List.map (\d -> ( d.reveal - currentBlock state.lastBlock, d ))
                 |> List.filterMap (shouldGetDomain mins)
@@ -182,7 +182,7 @@ chooseDomainsToRefresh time state =
 
 removeEndedBlocks : State -> Cmd Msg
 removeEndedBlocks state =
-    if oldestBlockState state.domainsAtBlock == Hidden then
+    if oldestBlockState state.blocks == Hidden then
         Process.sleep (seconds 2) |> Task.perform (always RemoveEndedBlocks)
 
     else
@@ -229,7 +229,7 @@ updateStateEndingSoon state lastBlock newDomains =
     let
         firstBlock : Height
         firstBlock =
-            List.head state.domainsAtBlock
+            List.head state.blocks
                 |> Maybe.map .height
                 |> Maybe.withDefault (nextBlock lastBlock)
 
@@ -239,7 +239,7 @@ updateStateEndingSoon state lastBlock newDomains =
 
         oldDomains : List Domain
         oldDomains =
-            List.concatMap .domains state.domainsAtBlock
+            List.concatMap .domains state.blocks
 
         showBlocks : Height -> List Height
         showBlocks height =
@@ -262,7 +262,7 @@ updateStateDomainDetails lastBlock domain state =
     in
     State newLastBlock <|
         hideBlocks newLastBlock <|
-            replaceBlocks state.domainsAtBlock domain (updateDomain Refreshed)
+            replaceBlocks state.blocks domain (updateDomain Refreshed)
 
 
 setRefreshing : List Domain -> State -> State
@@ -272,21 +272,21 @@ setRefreshing domains state =
         setState d blocks =
             replaceBlocks blocks d (setDomainState Refreshing)
 
-        newDabs : List Block
-        newDabs =
-            List.foldl setState state.domainsAtBlock domains
+        newBlocks : List Block
+        newBlocks =
+            List.foldl setState state.blocks domains
     in
-    { state | domainsAtBlock = newDabs }
+    { state | blocks = newBlocks }
 
 
 flipFave : Domain -> State -> State
 flipFave domain state =
     let
-        newDabs : List Block
-        newDabs =
-            replaceSortedBlocks state.domainsAtBlock domain flipFaveFlag
+        newBlocks : List Block
+        newBlocks =
+            replaceSortedBlocks state.blocks domain flipFaveFlag
     in
-    { state | domainsAtBlock = newDabs }
+    { state | blocks = newBlocks }
 
 
 
@@ -388,8 +388,8 @@ update msg model =
             mapSuccessfulModel model
                 (\state ->
                     ( { state
-                        | domainsAtBlock =
-                            removeHidden state.domainsAtBlock
+                        | blocks =
+                            removeHidden state.blocks
                       }
                     , Cmd.none
                     )
@@ -453,5 +453,5 @@ viewState state =
                 ]
             ]
         ]
-    , div [] <| List.map (viewBlock FlipFave state.lastBlock) state.domainsAtBlock
+    , div [] <| List.map (viewBlock FlipFave state.lastBlock) state.blocks
     ]
