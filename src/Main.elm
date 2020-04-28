@@ -61,7 +61,7 @@ main =
 
 
 type alias State =
-    { lastBlock : Int
+    { lastBlock : Height
     , domainsAtBlock : List Block
     }
 
@@ -81,17 +81,7 @@ initialState =
     State 0 []
 
 
-currentBlock : { a | lastBlock : Int } -> Int
-currentBlock s =
-    s.lastBlock + 1
-
-
-nextBlock : Int -> Int
-nextBlock lastBlock =
-    lastBlock + 2
-
-
-chooseLastBlock : State -> Int -> Int
+chooseLastBlock : State -> Height -> Height
 chooseLastBlock state =
     Basics.max state.lastBlock
 
@@ -154,7 +144,7 @@ updateEndingSoon state page domains =
 
         fetchNext : Cmd Msg
         fetchNext =
-            if maxFetched <= currentBlock state + blocksToDisplay then
+            if maxFetched <= currentBlock state.lastBlock + blocksToDisplay then
                 getEndingPage (page + 1)
 
             else
@@ -167,8 +157,8 @@ chooseDomainsToRefresh : Time.Posix -> State -> Cmd Msg
 chooseDomainsToRefresh time state =
     let
         shouldGetDomain : Int -> ( Int, Domain ) -> Maybe Domain
-        shouldGetDomain mins ( seq, domain ) =
-            if Basics.modBy seq mins == 0 then
+        shouldGetDomain mins ( blocksLeft, domain ) =
+            if Basics.modBy blocksLeft mins == 0 then
                 Just domain
 
             else
@@ -178,9 +168,7 @@ chooseDomainsToRefresh time state =
         domainsWhoseTimeIsRipe mins =
             state.domainsAtBlock
                 |> List.concatMap (\block -> block.domains)
-                -- prevent / 0
-                |> List.filter (\d -> d.reveal - currentBlock state > 0)
-                |> List.map (\d -> ( d.reveal - currentBlock state, d ))
+                |> List.map (\d -> ( d.reveal - currentBlock state.lastBlock, d ))
                 |> List.filterMap (shouldGetDomain mins)
 
         refreshDomains : List Domain
@@ -228,16 +216,16 @@ detailsToDomain d =
 -- state operations
 
 
-updateStateEndingSoon : State -> Int -> List Domain -> State
+updateStateEndingSoon : State -> Height -> List Domain -> State
 updateStateEndingSoon state lastBlock newDomains =
     let
-        firstBlock : Int
+        firstBlock : Height
         firstBlock =
             List.head state.domainsAtBlock
                 |> Maybe.map .height
                 |> Maybe.withDefault (nextBlock lastBlock)
 
-        newLastBlock : Int
+        newLastBlock : Height
         newLastBlock =
             chooseLastBlock state lastBlock
 
@@ -245,9 +233,9 @@ updateStateEndingSoon state lastBlock newDomains =
         oldDomains =
             List.concatMap .domains state.domainsAtBlock
 
-        showBlocks : Int -> List Int
+        showBlocks : Height -> List Height
         showBlocks height =
-            List.range firstBlock (nextBlock height + blocksToDisplay - 1)
+            List.range firstBlock (currentBlock height + blocksToDisplay)
 
         allDomains : List Domain
         allDomains =
@@ -258,7 +246,7 @@ updateStateEndingSoon state lastBlock newDomains =
             getDomainsAtBlocks allDomains (showBlocks newLastBlock)
 
 
-updateStateDomainDetails : Int -> Domain -> State -> State
+updateStateDomainDetails : Height -> Domain -> State -> State
 updateStateDomainDetails lastBlock domain state =
     let
         newLastBlock =
@@ -287,7 +275,7 @@ setRefreshing domains state =
 -- model operations
 
 
-getNewState : Model -> Int -> List Domain -> State
+getNewState : Model -> Height -> List Domain -> State
 getNewState model =
     case model of
         Success oldState ->
@@ -426,7 +414,7 @@ viewState state =
             ]
         , div [ class "pure-u-16-24 gray" ] [ text "<- blockchain height" ]
         , div [ class "pure-u-8-24 block it gray" ]
-            [ Util.divWrap <| text <| String.fromInt (currentBlock state)
+            [ Util.divWrap <| text <| String.fromInt (currentBlock state.lastBlock)
             ]
         , div [ class "pure-u-16-24 gray" ] [ text "<- currently mined block" ]
         ]

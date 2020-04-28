@@ -3,14 +3,17 @@ module Domains exposing
     , Domain
     , DomainUpdate
     , ElementState(..)
+    , Height
     , classBids
     , classG
     , classHighest
     , className
+    , currentBlock
     , domainsWithoutHighestBid
     , getDomainsAtBlocks
     , hideBlocks
     , mergeDomainLists
+    , nextBlock
     , oldestBlockState
     , removeHidden
     , replaceBlocks
@@ -33,7 +36,7 @@ import Util
 
 type alias Domain =
     { name : String
-    , reveal : Int
+    , reveal : Height
     , bids : Maybe Int
     , highestBid : Maybe Int
     , state : ElementState
@@ -41,10 +44,14 @@ type alias Domain =
 
 
 type alias Block =
-    { height : Int
+    { height : Height
     , domains : List Domain
     , state : ElementState
     }
+
+
+type alias Height =
+    Int
 
 
 type alias DomainUpdate =
@@ -157,10 +164,10 @@ domainsWithoutHighestBid =
     List.concatMap .domains >> List.filter (\d -> d.highestBid == Nothing)
 
 
-getDomainsAtBlocks : List Domain -> List Int -> List Block
+getDomainsAtBlocks : List Domain -> List Height -> List Block
 getDomainsAtBlocks domains =
     let
-        getBlock : List Domain -> Int -> Block
+        getBlock : List Domain -> Height -> Block
         getBlock ds height =
             List.filter (\d -> d.reveal == height) ds
                 |> (\block -> Block height block New)
@@ -175,10 +182,10 @@ oldestBlockState blocks =
         |> Maybe.withDefault New
 
 
-hideBlocks : Int -> List Block -> List Block
+hideBlocks : Height -> List Block -> List Block
 hideBlocks lastBlock =
     let
-        hideEarlierThan : Int -> Block -> Block
+        hideEarlierThan : Height -> Block -> Block
         hideEarlierThan height block =
             if block.height < height then
                 { block | state = Hidden }
@@ -212,6 +219,21 @@ classBids =
 
 classHighest =
     "pure-u-5-24 highest"
+
+
+currentBlock : Height -> Height
+currentBlock lastBlock =
+    lastBlock + 1
+
+
+nextBlock : Height -> Height
+nextBlock lastBlock =
+    lastBlock + 2
+
+
+timeLeft : Height -> Height -> Height
+timeLeft chainHeight blockEndsAt =
+    (blockEndsAt - currentBlock chainHeight) * 10
 
 
 displayMaybeNumber : Maybe Int -> String
@@ -276,17 +298,7 @@ blockState block =
             ""
 
 
-currentBlock : Int -> Int
-currentBlock lastBlock =
-    lastBlock + 1
-
-
-timeLeft : Int -> Int -> Int
-timeLeft chainHeight blockEndsAt =
-    (blockEndsAt - currentBlock chainHeight) * 10
-
-
-viewBlock : Int -> Block -> Html msg
+viewBlock : Height -> Block -> Html msg
 viewBlock chainHeight block =
     div [ class ("pure-g section " ++ blockState block) ]
         [ div [ class "pure-u-5-24 block it gray" ]
