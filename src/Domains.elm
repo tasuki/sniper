@@ -266,9 +266,14 @@ blockState block =
             ""
 
 
+currentBlock : Int -> Int
+currentBlock lastBlock =
+    lastBlock + 1
+
+
 timeLeft : Int -> Int -> Int
 timeLeft chainHeight blockEndsAt =
-    (blockEndsAt - chainHeight + 1) * 10
+    (blockEndsAt - currentBlock chainHeight) * 10
 
 
 viewBlock : Int -> Block -> Html msg
