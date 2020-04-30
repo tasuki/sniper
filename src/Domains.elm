@@ -198,24 +198,24 @@ replaceDomain block newDomain updateFun =
                 block.state
 
 
-replaceSortedBlocks : List Block -> Domain -> DomainUpdate -> List Block
-replaceSortedBlocks blocks domain updateFun =
+replaceBlocksWithTransform : (Block -> Block) -> List Block -> Domain -> DomainUpdate -> List Block
+replaceBlocksWithTransform transform blocks domain updateFun =
     case Util.splitOut (\block -> block.height == domain.reveal) blocks of
         Nothing ->
             blocks
 
         Just ( before, block, after ) ->
-            before ++ sortBlock (replaceDomain block domain updateFun) :: after
+            before ++ transform (replaceDomain block domain updateFun) :: after
+
+
+replaceSortedBlocks : List Block -> Domain -> DomainUpdate -> List Block
+replaceSortedBlocks =
+    replaceBlocksWithTransform sortBlock
 
 
 replaceBlocks : List Block -> Domain -> DomainUpdate -> List Block
-replaceBlocks blocks domain updateFun =
-    case Util.splitOut (\block -> block.height == domain.reveal) blocks of
-        Nothing ->
-            blocks
-
-        Just ( before, block, after ) ->
-            before ++ replaceDomain block domain updateFun :: after
+replaceBlocks =
+    replaceBlocksWithTransform identity
 
 
 domainsWithoutHighestBid : List Block -> List Domain
