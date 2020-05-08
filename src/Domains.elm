@@ -67,7 +67,7 @@ type alias DomainUpdate =
 
 
 type ElementState
-    = New
+    = Regular
     | Refreshing
     | Refreshed
     | Hidden
@@ -162,7 +162,7 @@ mergeDomainLists oldDomains newDomains =
                 )
             of
                 ( Just old, Just new ) ->
-                    updateDomain old.state old new
+                    updateDomain Regular old new
 
                 ( Just old, _ ) ->
                     old
@@ -226,7 +226,7 @@ updateBlockDomains : List Block -> Height -> List Domain -> Block
 updateBlockDomains blocks height domains =
     case List.Extra.find (\b -> b.height == height) blocks of
         Nothing ->
-            Block height domains New False
+            Block height domains Regular False
 
         Just b ->
             { b | domains = domains }
@@ -247,7 +247,7 @@ oldestBlockState : List Block -> ElementState
 oldestBlockState blocks =
     List.head blocks
         |> Maybe.map .state
-        |> Maybe.withDefault New
+        |> Maybe.withDefault Regular
 
 
 hideBlocks : Height -> List Block -> List Block
@@ -419,6 +419,7 @@ showHideDomains showFaves hideFaves block =
                 [ a [ onClick action ] [ text txt ] ]
             ]
 
+        showHideUnfaved : List (Html msg)
         showHideUnfaved =
             if block.favedOnly then
                 showHideUnfavedTxt

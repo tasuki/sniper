@@ -25,11 +25,6 @@ blocksToDisplay =
 -- SUBSCRIPTIONS
 
 
-seconds : number -> number
-seconds secs =
-    secs * 1000
-
-
 minutes : number -> number
 minutes min =
     min * 60 * 1000
@@ -97,6 +92,7 @@ type Msg
     | ChooseDomainsToFetch Time.Posix
     | FetchDomains (List Domain)
     | GotDomainDetails AC.DomainDetailsResult
+    | RemoveRefreshing Domain
     | RemoveEndedBlocks
     | FlipFave Domain
     | ShowFaves Block
@@ -185,7 +181,7 @@ chooseDomainsToRefresh time state =
 removeEndedBlocks : State -> Cmd Msg
 removeEndedBlocks state =
     if oldestBlockState state.blocks == Hidden then
-        Process.sleep (seconds 2) |> Task.perform (always RemoveEndedBlocks)
+        Util.msgToCommandAfter 2 RemoveEndedBlocks
 
     else
         Cmd.none
@@ -205,7 +201,7 @@ endingSoonToDomains es =
                 esd.revealAt
                 (Just esd.bids)
                 Nothing
-                New
+                Regular
                 False
     in
     List.map toDomain es.domains
@@ -256,15 +252,15 @@ updateStateEndingSoon state lastBlock newDomains =
             getDomainsAtBlocks state.blocks allDomains (showBlocks newLastBlock)
 
 
-updateStateDomainDetails : Height -> Domain -> State -> State
-updateStateDomainDetails lastBlock domain state =
+updateStateDomainDetails : Height -> ElementState -> Domain -> State -> State
+updateStateDomainDetails lastBlock domainState domain state =
     let
         newLastBlock =
             chooseLastBlock state lastBlock
     in
     State newLastBlock <|
         hideBlocks newLastBlock <|
-            replaceBlocks state.blocks domain (updateDomain Refreshed)
+            replaceBlocks state.blocks domain (updateDomain domainState)
 
 
 setRefreshing : List Domain -> State -> State
@@ -391,17 +387,32 @@ update msg model =
                     mapSuccessfulModel model
                         (\state ->
                             let
+                                domain =
+                                    detailsToDomain domainDetails
+
                                 newState =
                                     updateStateDomainDetails
                                         domainDetails.lastBlock
-                                        (detailsToDomain domainDetails)
+                                        Refreshed
+                                        domain
                                         state
                             in
-                            ( newState, removeEndedBlocks newState )
+                            ( newState
+                            , Cmd.batch
+                                [ removeEndedBlocks newState
+                                , Util.msgToCommandAfter 1 (RemoveRefreshing domain)
+                                ]
+                            )
                         )
 
                 Err _ ->
                     ( model, Cmd.none )
+
+        RemoveRefreshing domain ->
+            mapSuccessfulModel model
+                (\state ->
+                    ( updateStateDomainDetails state.lastBlock Regular domain state, Cmd.none )
+                )
 
         RemoveEndedBlocks ->
             mapSuccessfulModel model

@@ -3,12 +3,14 @@ module Util exposing
     , divWrapClass
     , maybeUpdateField
     , msgToCommand
+    , msgToCommandAfter
     , splitOut
     )
 
 import Html exposing (Html, div)
 import Html.Attributes exposing (class)
 import List.Extra
+import Process
 import Task
 
 
@@ -35,6 +37,11 @@ maybeUpdateField field old new =
 
         ( _, f ) ->
             f
+
+
+msgToCommandAfter : Float -> msg -> Cmd msg
+msgToCommandAfter seconds m =
+    Process.sleep (1000 * seconds) |> Task.perform (always m)
 
 
 msgToCommand : msg -> Cmd msg
