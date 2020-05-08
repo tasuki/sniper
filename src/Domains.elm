@@ -54,6 +54,7 @@ type alias Block =
     { height : Height
     , domains : List Domain
     , state : ElementState
+    , favedOnly : Bool
     }
 
 
@@ -193,9 +194,7 @@ replaceDomain block newDomain updateFun =
             block
 
         Just ( before, oldDomain, after ) ->
-            Block block.height
-                (before ++ updateFun oldDomain newDomain :: after)
-                block.state
+            { block | domains = before ++ updateFun oldDomain newDomain :: after }
 
 
 replaceBlocksWithTransform : (Block -> Block) -> List Block -> Domain -> DomainUpdate -> List Block
@@ -223,13 +222,23 @@ domainsWithoutHighestBid =
     List.concatMap .domains >> List.filter (\d -> d.highestBid == Nothing)
 
 
-getDomainsAtBlocks : List Domain -> List Height -> List Block
-getDomainsAtBlocks domains =
+updateBlockDomains : List Block -> Height -> List Domain -> Block
+updateBlockDomains blocks height domains =
+    case List.Extra.find (\b -> b.height == height) blocks of
+        Nothing ->
+            Block height domains New False
+
+        Just b ->
+            { b | domains = domains }
+
+
+getDomainsAtBlocks : List Block -> List Domain -> List Height -> List Block
+getDomainsAtBlocks blocks domains =
     let
         getBlock : List Domain -> Height -> Block
         getBlock ds height =
             List.filter (\d -> d.reveal == height) ds
-                |> (\block -> Block height block New)
+                |> updateBlockDomains blocks height
     in
     List.map (getBlock domains)
 
@@ -391,11 +400,53 @@ minutesLeftDiv chainHeight blockHeight =
                 ++ (String.fromInt <| blockHeight)
 
 
-viewBlock : (Domain -> msg) -> Height -> Block -> Html msg
-viewBlock faveAction chainHeight block =
+showHideDomains : (Block -> msg) -> (Block -> msg) -> Block -> List (Html msg)
+showHideDomains showFaves hideFaves block =
+    let
+        domainCount =
+            List.length block.domains
+
+        favedCount =
+            List.filter (\d -> d.faved) block.domains
+                |> List.length
+
+        unfavedCount =
+            domainCount - favedCount
+
+        showHideUnfavedTxt : msg -> String -> List (Html msg)
+        showHideUnfavedTxt action txt =
+            [ div [ class "show-hide" ]
+                [ a [ onClick action ] [ text txt ] ]
+            ]
+
+        showHideUnfaved =
+            if block.favedOnly then
+                showHideUnfavedTxt
+                    (showFaves block)
+                    ("↶ show " ++ String.fromInt unfavedCount ++ " more domains ↷")
+
+            else
+                showHideUnfavedTxt
+                    (hideFaves block)
+                    ("↺ hide " ++ String.fromInt unfavedCount ++ " domains ↻")
+    in
+    if unfavedCount > 0 then
+        showHideUnfaved
+
+    else
+        []
+
+
+viewBlock : (Domain -> msg) -> (Block -> msg) -> (Block -> msg) -> Height -> Block -> Html msg
+viewBlock faveAction showFaves hideFaves chainHeight block =
+    let
+        shownDomains =
+            List.filter (\d -> not block.favedOnly || d.faved) block.domains
+                |> List.map (viewDomain faveAction)
+    in
     div [ class ("pure-g section " ++ blockState block) ]
         [ div [ class <| classBlock ++ " it gray" ]
             [ minutesLeftDiv chainHeight block.height ]
         , div [ class <| classDomains ]
-            (List.map (viewDomain faveAction) block.domains)
+            (shownDomains ++ showHideDomains showFaves hideFaves block)
         ]

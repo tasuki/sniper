@@ -99,6 +99,8 @@ type Msg
     | GotDomainDetails AC.DomainDetailsResult
     | RemoveEndedBlocks
     | FlipFave Domain
+    | ShowFaves Block
+    | HideFaves Block
 
 
 
@@ -251,7 +253,7 @@ updateStateEndingSoon state lastBlock newDomains =
     in
     State newLastBlock <|
         hideBlocks newLastBlock <|
-            getDomainsAtBlocks allDomains (showBlocks newLastBlock)
+            getDomainsAtBlocks state.blocks allDomains (showBlocks newLastBlock)
 
 
 updateStateDomainDetails : Height -> Domain -> State -> State
@@ -285,6 +287,23 @@ flipFave domain state =
         newBlocks : List Block
         newBlocks =
             replaceSortedBlocks state.blocks domain flipFaveFlag
+    in
+    { state | blocks = newBlocks }
+
+
+showHideFaved : Bool -> Block -> State -> State
+showHideFaved favedOnly blockToUpdate state =
+    let
+        maybeUpdateBlock : Block -> Block
+        maybeUpdateBlock block =
+            if block.height == blockToUpdate.height then
+                { block | favedOnly = favedOnly }
+
+            else
+                block
+
+        newBlocks =
+            List.map maybeUpdateBlock state.blocks
     in
     { state | blocks = newBlocks }
 
@@ -399,6 +418,14 @@ update msg model =
             mapSuccessfulModel model
                 (\state -> ( flipFave domain state, Cmd.none ))
 
+        ShowFaves block ->
+            mapSuccessfulModel model
+                (\state -> ( showHideFaved False block state, Cmd.none ))
+
+        HideFaves block ->
+            mapSuccessfulModel model
+                (\state -> ( showHideFaved True block state, Cmd.none ))
+
 
 
 -- VIEW
@@ -453,5 +480,5 @@ viewState state =
                 ]
             ]
         ]
-    , div [] <| List.map (viewBlock FlipFave state.lastBlock) state.blocks
+    , div [] <| List.map (viewBlock FlipFave ShowFaves HideFaves state.lastBlock) state.blocks
     ]
