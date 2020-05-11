@@ -424,12 +424,12 @@ showHideDomains showFaves hideFaves block =
             if block.favedOnly then
                 showHideUnfavedTxt
                     (showFaves block)
-                    ("↶ show " ++ String.fromInt unfavedCount ++ " more domains ↷")
+                    ("↶ show " ++ String.fromInt unfavedCount ++ " more names ↷")
 
             else
                 showHideUnfavedTxt
                     (hideFaves block)
-                    ("↺ hide " ++ String.fromInt unfavedCount ++ " domains ↻")
+                    ("↺ hide " ++ String.fromInt unfavedCount ++ " names ↻")
     in
     if unfavedCount > 0 then
         showHideUnfaved
@@ -443,7 +443,7 @@ viewBlock faveAction showFaves hideFaves chainHeight block =
     let
         domainList =
             if List.isEmpty block.domains then
-                [ div [ class "show-hide-none" ] [ text "⨯ no domains here ⨯" ] ]
+                [ div [ class "show-hide-none" ] [ text "⨯ no names here ⨯" ] ]
 
             else
                 List.filter (\d -> not block.favedOnly || d.faved) block.domains
