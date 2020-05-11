@@ -415,7 +415,7 @@ showHideDomains showFaves hideFaves block =
 
         showHideUnfavedTxt : msg -> String -> List (Html msg)
         showHideUnfavedTxt action txt =
-            [ div [ class "show-hide" ]
+            [ div [ class "show-hide-none" ]
                 [ a [ onClick action ] [ text txt ] ]
             ]
 
@@ -441,13 +441,17 @@ showHideDomains showFaves hideFaves block =
 viewBlock : (Domain -> msg) -> (Block -> msg) -> (Block -> msg) -> Height -> Block -> Html msg
 viewBlock faveAction showFaves hideFaves chainHeight block =
     let
-        shownDomains =
-            List.filter (\d -> not block.favedOnly || d.faved) block.domains
-                |> List.map (viewDomain faveAction)
+        domainList =
+            if List.isEmpty block.domains then
+                [ div [ class "show-hide-none" ] [ text "⨯ no domains here ⨯" ] ]
+
+            else
+                List.filter (\d -> not block.favedOnly || d.faved) block.domains
+                    |> List.map (viewDomain faveAction)
     in
     div [ class ("pure-g section " ++ blockState block) ]
         [ div [ class <| classBlock ++ " it gray" ]
             [ minutesLeftDiv chainHeight block.height ]
         , div [ class <| classDomains ]
-            (shownDomains ++ showHideDomains showFaves hideFaves block)
+            (domainList ++ showHideDomains showFaves hideFaves block)
         ]
