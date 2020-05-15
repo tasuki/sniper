@@ -25,16 +25,16 @@ blocksToDisplay =
 -- SUBSCRIPTIONS
 
 
-minutes : number -> number
-minutes min =
-    min * 60 * 1000
+intervalFromSeconds : number -> number
+intervalFromSeconds secs =
+    secs * 1000
 
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
-        [ Time.every (minutes 10) RefetchEndingSoon
-        , Time.every (minutes 1) ChooseDomainsToFetch
+        [ Time.every (intervalFromSeconds 3) Tick
+        , Time.every (intervalFromSeconds 60) ChooseDomainsToFetch
         ]
 
 
@@ -61,17 +61,24 @@ type alias State =
     }
 
 
-type Model
+type Status
     = Failure
     | Loading
     | Success State
 
 
+type alias Model =
+    { status : Status
+    , refreshed : Time.Posix
+    }
+
+
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Loading, getEnding )
+    ( Model Loading (Time.millisToPosix 0), Task.perform Tick Time.now )
 
 
+initialState : State
 initialState =
     State 0 []
 
@@ -87,7 +94,7 @@ chooseLastBlock state =
 
 type Msg
     = FetchEndingSoon
-    | RefetchEndingSoon Time.Posix
+    | Tick Time.Posix
     | GotEndingSoon Int AC.EndingSoonResult
     | ChooseDomainsToFetch Time.Posix
     | FetchDomains (List Domain)
@@ -101,11 +108,6 @@ type Msg
 
 
 -- commands
-
-
-getEnding : Cmd Msg
-getEnding =
-    getEndingPage 0
 
 
 getEndingPage : Int -> Cmd Msg
@@ -310,7 +312,7 @@ showHideFaved favedOnly blockToUpdate state =
 
 getNewState : Model -> Height -> List Domain -> State
 getNewState model =
-    case model of
+    case model.status of
         Success oldState ->
             updateStateEndingSoon oldState
 
@@ -320,26 +322,56 @@ getNewState model =
 
 mapSuccessfulModel : Model -> (State -> ( State, Cmd msg )) -> ( Model, Cmd msg )
 mapSuccessfulModel model stateUpdate =
-    case model of
+    case model.status of
         Success state ->
             let
                 ( newState, cmd ) =
                     stateUpdate state
             in
-            ( Success <| newState, cmd )
+            ( { model | status = Success <| newState }, cmd )
 
         _ ->
-            ( Failure, Cmd.none )
+            ( { model | status = Failure }, Cmd.none )
+
+
+refetchIfOutdated : Time.Posix -> Model -> ( Model, Cmd Msg )
+refetchIfOutdated now model =
+    let
+        timeInSeconds : Time.Posix -> Int
+        timeInSeconds posix =
+            Time.posixToMillis posix // 1000
+
+        -- refresh if more than ten minutes out of date
+        isOutdated : Bool
+        isOutdated =
+            timeInSeconds now - timeInSeconds model.refreshed > 600
+
+        fetch : Cmd Msg
+        fetch =
+            Util.msgToCommand FetchEndingSoon
+    in
+    case ( model.status, isOutdated ) of
+        ( Loading, _ ) ->
+            ( Model Loading now, fetch )
+
+        ( Success _, True ) ->
+            ( { model | refreshed = now }, fetch )
+
+        ( Failure, _ ) ->
+            ( Model Loading now, fetch )
+
+        ( _, _ ) ->
+            ( model, Cmd.none )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        FetchEndingSoon ->
-            ( Loading, getEnding )
+        Tick now ->
+            refetchIfOutdated now model
 
-        RefetchEndingSoon _ ->
-            ( model, getEnding )
+        FetchEndingSoon ->
+            ( model, getEndingPage 0 )
 
         GotEndingSoon page result ->
             case result of
@@ -360,10 +392,10 @@ update msg model =
                                 , removeEndedBlocks newState
                                 ]
                     in
-                    ( Success newState, cmd )
+                    ( { model | status = Success newState }, cmd )
 
                 Err _ ->
-                    ( Failure, Cmd.none )
+                    ( { model | status = Failure }, Cmd.none )
 
         ChooseDomainsToFetch time ->
             mapSuccessfulModel model
@@ -450,7 +482,7 @@ view model =
 
 viewModel : Model -> List (Html Msg)
 viewModel model =
-    case model of
+    case model.status of
         Loading ->
             [ h2 [] [ text "Hello Happy Handshake Snipers" ]
             , p [] [ text "Loading, this shouldn't take long..." ]
@@ -459,7 +491,7 @@ viewModel model =
         Failure ->
             [ h2 [] [ text " Something's wrong :(" ]
             , p [] [ text "Could not load the list of auctioned names." ]
-            , p [] [ button [ onClick FetchEndingSoon ] [ text "Try Again!" ] ]
+            , p [] [ text "We'll try again in a couple of seconds!" ]
             ]
 
         Success state ->
