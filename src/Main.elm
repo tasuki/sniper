@@ -210,11 +210,18 @@ endingSoonToDomains es =
 
 detailsToDomain : AC.DomainDetails -> Domain
 detailsToDomain d =
+    let
+        maxFromBids : Int
+        maxFromBids =
+            List.map .stakeAmount d.bids
+                |> List.maximum
+                |> Maybe.withDefault 0
+    in
     Domain
         d.name
         d.revealAt
         (Just <| List.length d.bids)
-        (Just d.highestBid)
+        (Just <| Basics.max maxFromBids d.highestBid)
         Refreshed
         False
 
