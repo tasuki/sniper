@@ -86,10 +86,10 @@ updateDomain : ElementState -> DomainUpdate
 updateDomain state old new =
     let
         bids =
-            Util.maybeUpdateField .bids old new
+            Util.takeHigher .bids old new
 
         highestBid =
-            Util.maybeUpdateField .highestBid old new
+            Util.takeHigher .highestBid old new
     in
     Domain new.name new.reveal bids highestBid state old.faved
 

@@ -1,10 +1,10 @@
 module Util exposing
     ( divWrap
     , divWrapClass
-    , maybeUpdateField
     , msgToCommand
     , msgToCommandAfter
     , splitOut
+    , takeHigher
     )
 
 import Html exposing (Html, div)
@@ -29,9 +29,12 @@ splitOut predicate =
     List.Extra.splitWhen predicate >> Maybe.andThen helper
 
 
-maybeUpdateField : (a -> Maybe b) -> a -> a -> Maybe b
-maybeUpdateField field old new =
+takeHigher : (a -> Maybe comparable) -> a -> a -> Maybe comparable
+takeHigher field old new =
     case ( field old, field new ) of
+        ( Just fOld, Just fNew ) ->
+            Just (max fOld fNew)
+
         ( Just f, Nothing ) ->
             Just f
 
