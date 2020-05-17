@@ -5,8 +5,6 @@ import Browser
 import Domains exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
-import Html.Events exposing (..)
-import Process
 import Set exposing (Set)
 import Task
 import Time
@@ -62,8 +60,9 @@ type alias State =
 
 
 type Status
-    = Failure
+    = Initial
     | Loading
+    | Failure
     | Success State
 
 
@@ -75,7 +74,7 @@ type alias Model =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( Model Loading (Time.millisToPosix 0), Task.perform Tick Time.now )
+    ( Model Initial (Time.millisToPosix 0), Task.perform Tick Time.now )
 
 
 initialState : State
@@ -331,11 +330,11 @@ mapSuccessfulModel model stateUpdate =
             ( { model | status = Success <| newState }, cmd )
 
         _ ->
-            ( { model | status = Failure }, Cmd.none )
+            ( model, Cmd.none )
 
 
-refetchIfOutdated : Time.Posix -> Model -> ( Model, Cmd Msg )
-refetchIfOutdated now model =
+updateOnTick : Time.Posix -> Model -> ( Model, Cmd Msg )
+updateOnTick now model =
     let
         timeInSeconds : Time.Posix -> Int
         timeInSeconds posix =
@@ -352,23 +351,27 @@ refetchIfOutdated now model =
     in
     case ( model.status, isOutdated ) of
         ( Loading, _ ) ->
-            ( Model Loading now, fetch )
+            -- already loading - don't do anything
+            ( model, Cmd.none )
 
-        ( Success _, True ) ->
-            ( { model | refreshed = now }, fetch )
+        ( Success state, True ) ->
+            -- fetch ending and remove old blocks
+            ( { model | refreshed = now }, Cmd.batch [ fetch, removeEndedBlocks state ] )
 
-        ( Failure, _ ) ->
-            ( Model Loading now, fetch )
+        ( Success state, False ) ->
+            -- remove old blocks
+            ( model, removeEndedBlocks state )
 
         ( _, _ ) ->
-            ( model, Cmd.none )
+            -- initial or failed, fetch ending!
+            ( Model Loading now, fetch )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Tick now ->
-            refetchIfOutdated now model
+            updateOnTick now model
 
         FetchEndingSoon ->
             ( model, getEndingPage 0 )
@@ -384,15 +387,10 @@ update msg model =
                         newState : State
                         newState =
                             getNewState model endingSoon.lastBlock domains
-
-                        cmd : Cmd Msg
-                        cmd =
-                            Cmd.batch
-                                [ updateEndingSoon newState page domains
-                                , removeEndedBlocks newState
-                                ]
                     in
-                    ( { model | status = Success newState }, cmd )
+                    ( { model | status = Success newState }
+                    , updateEndingSoon newState page domains
+                    )
 
                 Err _ ->
                     ( { model | status = Failure }, Cmd.none )
@@ -430,10 +428,7 @@ update msg model =
                                         state
                             in
                             ( newState
-                            , Cmd.batch
-                                [ removeEndedBlocks newState
-                                , Util.msgToCommandAfter 1 (RemoveRefreshing domain)
-                                ]
+                            , Util.msgToCommandAfter 1 (RemoveRefreshing domain)
                             )
                         )
 
@@ -483,11 +478,6 @@ view model =
 viewModel : Model -> List (Html Msg)
 viewModel model =
     case model.status of
-        Loading ->
-            [ h2 [] [ text "Hello Happy Handshake Snipers" ]
-            , p [] [ text "Loading, this shouldn't take long..." ]
-            ]
-
         Failure ->
             [ h2 [] [ text " Something's wrong :(" ]
             , p [] [ text "Could not load the list of auctioned names." ]
@@ -496,6 +486,11 @@ viewModel model =
 
         Success state ->
             viewState state
+
+        _ ->
+            [ h2 [] [ text "Hello Happy Handshake Snipers" ]
+            , p [] [ text "Loading, this shouldn't take long..." ]
+            ]
 
 
 viewState : State -> List (Html Msg)
