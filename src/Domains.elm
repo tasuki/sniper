@@ -22,7 +22,6 @@ module Domains exposing
     , removeHidden
     , replaceBlocks
     , replaceSortedBlocks
-    , setDomainState
     , updateDomain
     , viewBlock
     )
@@ -92,11 +91,6 @@ updateDomain state old new =
             Util.takeHigher .highestBid old new
     in
     Domain new.name new.reveal bids highestBid state old.faved
-
-
-setDomainState : ElementState -> DomainUpdate
-setDomainState state old _ =
-    { old | state = state }
 
 
 flipFaveFlag : DomainUpdate

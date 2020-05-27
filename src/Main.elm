@@ -63,23 +63,24 @@ type Status
     = Initial
     | Loading
     | Failure
-    | Success State
+    | Success
 
 
 type alias Model =
     { status : Status
+    , state : State
     , refreshed : Time.Posix
     }
-
-
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( Model Initial (Time.millisToPosix 0), Task.perform Tick Time.now )
 
 
 initialState : State
 initialState =
     State 0 []
+
+
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( Model Initial initialState (Time.millisToPosix 0), Task.perform Tick Time.now )
 
 
 chooseLastBlock : State -> Height -> Height
@@ -260,15 +261,15 @@ updateStateEndingSoon state lastBlock newDomains =
             getDomainsAtBlocks state.blocks allDomains (showBlocks newLastBlock)
 
 
-updateStateDomainDetails : Height -> ElementState -> Domain -> State -> State
-updateStateDomainDetails lastBlock domainState domain state =
+updateStateDomainDetails : Height -> Domain -> State -> State
+updateStateDomainDetails lastBlock domain state =
     let
         newLastBlock =
             chooseLastBlock state lastBlock
     in
     State newLastBlock <|
         hideBlocks newLastBlock <|
-            replaceBlocks state.blocks domain (updateDomain domainState)
+            replaceBlocks state.blocks domain (updateDomain Refreshed)
 
 
 setRefreshing : List Domain -> State -> State
@@ -276,7 +277,7 @@ setRefreshing domains state =
     let
         setState : Domain -> List Block -> List Block
         setState d blocks =
-            replaceBlocks blocks d (setDomainState Refreshing)
+            replaceBlocks blocks d (updateDomain Refreshing)
 
         newBlocks : List Block
         newBlocks =
@@ -316,30 +317,6 @@ showHideFaved favedOnly blockToUpdate state =
 -- model operations
 
 
-getNewState : Model -> Height -> List Domain -> State
-getNewState model =
-    case model.status of
-        Success oldState ->
-            updateStateEndingSoon oldState
-
-        _ ->
-            updateStateEndingSoon initialState
-
-
-mapSuccessfulModel : Model -> (State -> ( State, Cmd msg )) -> ( Model, Cmd msg )
-mapSuccessfulModel model stateUpdate =
-    case model.status of
-        Success state ->
-            let
-                ( newState, cmd ) =
-                    stateUpdate state
-            in
-            ( { model | status = Success <| newState }, cmd )
-
-        _ ->
-            ( model, Cmd.none )
-
-
 updateOnTick : Time.Posix -> Model -> ( Model, Cmd Msg )
 updateOnTick now model =
     let
@@ -361,17 +338,53 @@ updateOnTick now model =
             -- already loading - don't do anything
             ( model, Cmd.none )
 
-        ( Success state, True ) ->
+        ( Success, True ) ->
             -- fetch ending and remove old blocks
-            ( { model | refreshed = now }, Cmd.batch [ fetch, removeEndedBlocks state ] )
+            ( { model | refreshed = now }, Cmd.batch [ fetch, removeEndedBlocks model.state ] )
 
-        ( Success state, False ) ->
+        ( Success, False ) ->
             -- remove old blocks
-            ( model, removeEndedBlocks state )
+            ( model, removeEndedBlocks model.state )
 
         ( _, _ ) ->
             -- initial or failed, fetch ending!
-            ( Model Loading now, fetch )
+            ( { model | status = Loading, refreshed = now }, fetch )
+
+
+gotEndingSoon : Model -> Int -> AC.EndingSoon -> ( Model, Cmd Msg )
+gotEndingSoon model page endingSoon =
+    let
+        domains : List Domain
+        domains =
+            endingSoonToDomains endingSoon
+
+        newState : State
+        newState =
+            updateStateEndingSoon
+                model.state
+                endingSoon.lastBlock
+                domains
+    in
+    ( { model | status = Success, state = newState }
+    , updateEndingSoon newState page domains
+    )
+
+
+gotDomainDetails : Model -> AC.DomainDetails -> ( Model, Cmd Msg )
+gotDomainDetails model domainDetails =
+    let
+        domain =
+            detailsToDomain domainDetails
+
+        newState =
+            updateStateDomainDetails
+                domainDetails.lastBlock
+                domain
+                model.state
+    in
+    ( { model | state = newState }
+    , Util.msgToCommandAfter 1 (RemoveRefreshing domain)
+    )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -386,90 +399,62 @@ update msg model =
         GotEndingSoon page result ->
             case result of
                 Ok endingSoon ->
-                    let
-                        domains : List Domain
-                        domains =
-                            endingSoonToDomains endingSoon
-
-                        newState : State
-                        newState =
-                            getNewState model endingSoon.lastBlock domains
-                    in
-                    ( { model | status = Success newState }
-                    , updateEndingSoon newState page domains
-                    )
+                    gotEndingSoon model page endingSoon
 
                 Err _ ->
                     ( { model | status = Failure }, Cmd.none )
 
         ChooseDomainsToFetch time ->
-            mapSuccessfulModel model
-                (\state ->
-                    ( state
-                    , chooseDomainsToRefresh time state
-                    )
-                )
+            ( model, chooseDomainsToRefresh time model.state )
 
         FetchDomains refreshDomains ->
-            mapSuccessfulModel model
-                (\state ->
-                    ( setRefreshing refreshDomains state
-                    , fetchDomains refreshDomains
-                    )
-                )
+            ( { model | state = setRefreshing refreshDomains model.state }
+            , fetchDomains refreshDomains
+            )
 
         GotDomainDetails result ->
             case result of
                 Ok domainDetails ->
-                    mapSuccessfulModel model
-                        (\state ->
-                            let
-                                domain =
-                                    detailsToDomain domainDetails
-
-                                newState =
-                                    updateStateDomainDetails
-                                        domainDetails.lastBlock
-                                        Refreshed
-                                        domain
-                                        state
-                            in
-                            ( newState
-                            , Util.msgToCommandAfter 1 (RemoveRefreshing domain)
-                            )
-                        )
+                    gotDomainDetails model domainDetails
 
                 Err _ ->
-                    ( model, Cmd.none )
+                    ( { model | status = Failure }, Cmd.none )
 
         RemoveRefreshing domain ->
-            mapSuccessfulModel model
-                (\state ->
-                    ( updateStateDomainDetails state.lastBlock Regular domain state, Cmd.none )
-                )
+            let
+                makeRegular state =
+                    { state
+                        | blocks =
+                            replaceBlocks state.blocks domain (updateDomain Regular)
+                    }
+            in
+            ( { model | state = makeRegular model.state }
+            , Cmd.none
+            )
 
         RemoveEndedBlocks ->
-            mapSuccessfulModel model
-                (\state ->
-                    ( { state
-                        | blocks =
-                            removeHidden state.blocks
-                      }
-                    , Cmd.none
-                    )
-                )
+            let
+                removeHiddenBlocks state =
+                    { state | blocks = removeHidden state.blocks }
+            in
+            ( { model | state = removeHiddenBlocks model.state }
+            , Cmd.none
+            )
 
         FlipFave domain ->
-            mapSuccessfulModel model
-                (\state -> ( flipFave domain state, Cmd.none ))
+            ( { model | state = flipFave domain model.state }
+            , Cmd.none
+            )
 
         ShowFaves block ->
-            mapSuccessfulModel model
-                (\state -> ( showHideFaved False block state, Cmd.none ))
+            ( { model | state = showHideFaved False block model.state }
+            , Cmd.none
+            )
 
         HideFaves block ->
-            mapSuccessfulModel model
-                (\state -> ( showHideFaved True block state, Cmd.none ))
+            ( { model | state = showHideFaved True block model.state }
+            , Cmd.none
+            )
 
 
 
@@ -479,20 +464,20 @@ update msg model =
 view : Model -> Html Msg
 view model =
     div [ id "sniper" ]
-        (viewModel model)
+        (viewHeader model ++ viewState model.state)
 
 
-viewModel : Model -> List (Html Msg)
-viewModel model =
+viewHeader : Model -> List (Html Msg)
+viewHeader model =
     case model.status of
         Failure ->
-            [ h2 [] [ text " Something's wrong :(" ]
-            , p [] [ text "Could not load the list of auctioned names." ]
-            , p [] [ text "We'll try again in a couple of seconds!" ]
+            [ h2 [] [ text "Something's wrong :(" ]
+            , p [ class "error" ]
+                [ text "Could not load auctioned names. Will try again in a couple of seconds!" ]
             ]
 
-        Success state ->
-            viewState state
+        Success ->
+            []
 
         _ ->
             [ h2 [] [ text "Hello Happy Handshake Snipers" ]
@@ -502,6 +487,15 @@ viewModel model =
 
 viewState : State -> List (Html Msg)
 viewState state =
+    if state == initialState then
+        []
+
+    else
+        displayState state
+
+
+displayState : State -> List (Html Msg)
+displayState state =
     [ div [ class "pure-g topbar" ]
         [ div [ class <| classBlock ++ " it gray" ]
             [ Util.divWrap <| text <| String.fromInt state.lastBlock ]
