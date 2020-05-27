@@ -19,6 +19,10 @@ blocksToDisplay =
     15
 
 
+secondsTillStale =
+    600
+
+
 
 -- SUBSCRIPTIONS
 
@@ -324,16 +328,16 @@ updateOnTick now model =
         timeInSeconds posix =
             Time.posixToMillis posix // 1000
 
-        -- refresh if more than ten minutes out of date
-        isOutdated : Bool
-        isOutdated =
-            timeInSeconds now - timeInSeconds model.refreshed > 600
+        -- refresh if more than secondsTillStale out of date
+        isStale : Bool
+        isStale =
+            timeInSeconds now - timeInSeconds model.refreshed > secondsTillStale
 
         fetch : Cmd Msg
         fetch =
             Util.msgToCommand FetchEndingSoon
     in
-    case ( model.status, isOutdated ) of
+    case ( model.status, isStale ) of
         ( Loading, _ ) ->
             -- already loading - don't do anything
             ( model, Cmd.none )
