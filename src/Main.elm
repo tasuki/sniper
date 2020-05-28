@@ -2,6 +2,7 @@ module Main exposing (main)
 
 import ApiClient as AC
 import Browser
+import Config
 import Domains exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -16,7 +17,7 @@ import Util
 
 
 blocksToDisplay =
-    15
+    Config.blocksToDisplay
 
 
 secondsTillStale =
