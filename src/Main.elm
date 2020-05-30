@@ -164,7 +164,7 @@ chooseDomainsToRefresh time state =
     let
         shouldGetDomain : Int -> ( Int, Domain ) -> Maybe Domain
         shouldGetDomain mins ( blocksLeft, domain ) =
-            if Basics.modBy blocksLeft mins == 0 then
+            if blocksLeft > 0 && Basics.modBy blocksLeft mins == 0 then
                 Just domain
 
             else
