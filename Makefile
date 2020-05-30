@@ -1,3 +1,6 @@
+-include .env
+export
+
 react:
 	elm reactor
 
@@ -18,3 +21,9 @@ build: basic
 
 build-pro: pro
 	elm make src/Main.elm --optimize --output=sniper.js
+
+deploy: build
+	scp index.html sniper.js $$DST
+
+deploy-pro: build-pro
+	scp index.html sniper.js $$DST_PRO

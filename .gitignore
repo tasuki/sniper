@@ -1,3 +1,4 @@
+.env
 elm-stuff/
 sniper.js
 src/Config.elm
