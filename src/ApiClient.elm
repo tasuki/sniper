@@ -22,7 +22,7 @@ baseUrl =
 
 
 endingSoonPerPage =
-    12
+    100
 
 
 
