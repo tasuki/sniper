@@ -9,16 +9,16 @@ import Test exposing (..)
 cases : List ( Data, String )
 cases =
     [ ( [], "" )
-    , ( [ SixBit 0 0 0 0 0 0 ], "A" )
-    , ( [ SixBit 0 0 0 1 1 1 ], "H" )
-    , ( [ SixBit 0 1 0 1 0 1 ], "V" )
-    , ( [ SixBit 1 0 1 0 1 0 ], "q" )
-    , ( [ SixBit 1 1 1 0 0 0 ], "4" )
+    , ( [ SixBit 0 0 0 0 0 0 ], "i" )
+    , ( [ SixBit 0 0 0 1 1 1 ], "s" )
+    , ( [ SixBit 0 1 0 1 0 1 ], "u" )
+    , ( [ SixBit 1 0 1 0 1 0 ], "F" )
+    , ( [ SixBit 1 1 1 0 0 0 ], "U" )
     , ( [ SixBit 1 1 1 1 1 1 ], "_" )
-    , ( [ SixBit 0 0 0 0 0 0
-        , SixBit 1 0 0 0 0 1
-        , SixBit 1 0 1 0 0 0
-        , SixBit 1 0 0 0 1 1
+    , ( [ SixBit 1 0 0 1 0 1
+        , SixBit 0 0 1 1 1 1
+        , SixBit 0 1 0 0 1 0
+        , SixBit 0 0 0 0 0 1
         ]
       , "Ahoj"
       )
