@@ -10,6 +10,7 @@ import Config
 import Domains exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Markdown
 import Set exposing (Set)
 import Task
 import Time
@@ -551,10 +552,39 @@ view : Model -> Document Msg
 view model =
     { title = "Sniper"
     , body =
-        [ div [ id "sniper" ]
-            (viewHeader model ++ viewState model.state)
+        [ div [ id "wrap" ]
+            [ div [ id "sniper" ]
+                (viewHeader model ++ viewState model.state)
+            , viewSidebar
+            ]
         ]
     }
+
+
+viewSidebar : Html Msg
+viewSidebar =
+    Markdown.toHtml [ id "sidebar", class "gray" ] """
+#### Hello Snipers
+
+This website helps you keep an eye on soon-ending Handshake auctions.
+
+*It refreshes automatically &ndash; please don't hit the refresh button*.
+The auctions ending in 1 block are refreshed every minute.
+Auctions ending in 2 blocks every 2 minutes, etc.
+
+#### To Do
+
+- Display emoji domains right \u{1F643}
+- Make it responsive again
+- Add desktop notifications
+
+#### How's it work?
+
+We use the [Namebase](https://www.namebase.io) API &ndash; thank you Namebase!
+Written with joy in [Elm](https://elm-lang.org/).
+The [source code is on GitHub](https://github.com/tasuki/sniper).
+I'm learning, go easy on me.
+"""
 
 
 viewHeader : Model -> List (Html Msg)

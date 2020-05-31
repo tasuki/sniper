@@ -14,6 +14,7 @@
             "elm/time": "1.0.0",
             "elm/url": "1.0.0",
             "elm-community/list-extra": "8.2.4",
+            "elm-explorations/markdown": "1.0.0",
             "ggb/elm-bloom": "1.1.0"
         },
         "indirect": {

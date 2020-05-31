@@ -71,26 +71,18 @@
   <script src="sniper.js"></script>
 </head>
 <body>
-  <div id="wrap">
-    <div id="sniper"></div>
-    <div id="sidebar" class="gray">
-      <h4>Hello Snipers</h4>
-        <p>This website helps you keep an eye on soon-ending Handshake auctions.</p>
-        <p><em>It refreshes automatically &ndash; please don't hit the refresh button</em>. The auctions ending in 1 block are refreshed every minute. Auctions ending in 2 blocks every 2 minutes, etc.</p>
-      <h4>To Do</h4>
-        <ul>
-          <li>Display emoji domains right &#x1F643;</li>
-          <li>Make it responsive again</li>
-          <li>Add desktop notifications</li>
-        </ul>
-      <h4>How's it work?</h4>
-        <p>We use the <a href="https://www.namebase.io">Namebase</a> API - thank you Namebase!
-          Written with joy in <a href="https://elm-lang.org/">Elm</a>.
-          The <a href="https://github.com/tasuki/sniper">source code is on GitHub.</a> I'm learning, go easy on me.</p>
-    </div>
-  </div>
+  <p>
+    If you can see this perhaps you don't have JavaScript enabled?
+    Or perhaps I messed something up? No idea, really.
+  </p>
+
+  <p>
+    The <a href="https://github.com/tasuki/sniper">source code is on GitHub</a>.
+    Looking there might or might not help.
+  </p>
+
   <script>
-    var app = Elm.Main.init({ node: document.getElementById('sniper') });
+    var app = Elm.Main.init();
   </script>
 </body>
 </html>
