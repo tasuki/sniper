@@ -1,7 +1,11 @@
 module Main exposing (main)
 
 import ApiClient as AC
-import Browser
+import Array
+import Base64
+import Bloom
+import Browser exposing (Document)
+import Browser.Navigation as Nav
 import Config
 import Domains exposing (..)
 import Html exposing (..)
@@ -9,6 +13,7 @@ import Html.Attributes exposing (..)
 import Set exposing (Set)
 import Task
 import Time
+import Url
 import Util
 
 
@@ -22,6 +27,11 @@ blocksToDisplay =
 
 secondsTillStale =
     600
+
+
+emptyBloomFilter : Bloom.Filter
+emptyBloomFilter =
+    Bloom.empty 1080 4
 
 
 
@@ -46,11 +56,13 @@ subscriptions model =
 
 
 main =
-    Browser.element
+    Browser.application
         { init = init
+        , view = view
         , update = update
         , subscriptions = subscriptions
-        , view = view
+        , onUrlRequest = LinkClicked
+        , onUrlChange = UrlChanged
         }
 
 
@@ -75,6 +87,9 @@ type alias Model =
     { status : Status
     , state : State
     , refreshed : Time.Posix
+    , isFave : Domain -> Bool
+    , initialUrl : Url.Url
+    , navKey : Nav.Key
     }
 
 
@@ -83,9 +98,32 @@ initialState =
     State 0 []
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( Model Initial initialState (Time.millisToPosix 0), Task.perform Tick Time.now )
+init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init _ url navKey =
+    let
+        sbToList sb =
+            [ sb.a, sb.b, sb.c, sb.d, sb.e, sb.f ]
+
+        decodeFaves : String -> Array.Array Int
+        decodeFaves =
+            Base64.decode >> List.concatMap sbToList >> Array.fromList
+
+        filter : Bloom.Filter
+        filter =
+            case url.fragment of
+                Just bloomStr ->
+                    { emptyBloomFilter | set = decodeFaves bloomStr }
+
+                Nothing ->
+                    emptyBloomFilter
+
+        isFave : Domain -> Bool
+        isFave domain =
+            Bloom.test domain.name filter
+    in
+    ( Model Initial initialState (Time.millisToPosix 0) isFave url navKey
+    , Task.perform Tick Time.now
+    )
 
 
 chooseLastBlock : State -> Height -> Height
@@ -98,7 +136,9 @@ chooseLastBlock state =
 
 
 type Msg
-    = FetchEndingSoon
+    = UrlChanged Url.Url
+    | LinkClicked Browser.UrlRequest
+    | FetchEndingSoon
     | Tick Time.Posix
     | GotEndingSoon Int AC.EndingSoonResult
     | ChooseDomainsToFetch Time.Posix
@@ -194,6 +234,36 @@ removeEndedBlocks state =
         Cmd.none
 
 
+encodeFaves : List Block -> String
+encodeFaves blocks =
+    let
+        faves : List String
+        faves =
+            favedDomains blocks |> List.map .name
+
+        faveFilter : Bloom.Filter
+        faveFilter =
+            List.foldr Bloom.add emptyBloomFilter faves
+
+        getSix : Base64.Data -> List Int -> Base64.Data
+        getSix acc ints =
+            case ints of
+                a :: b :: c :: d :: e :: f :: t ->
+                    getSix (Base64.SixBit a b c d e f :: acc) t
+
+                _ ->
+                    -- if there aren't 6 tough luck we drop 'em
+                    acc
+    in
+    Array.toList faveFilter.set |> getSix [] |> List.reverse |> Base64.encode
+
+
+favesIntoUrl : Url.Url -> Nav.Key -> List Block -> Cmd Msg
+favesIntoUrl url navKey blocks =
+    Nav.pushUrl navKey <|
+        Url.toString { url | fragment = Just (encodeFaves blocks) }
+
+
 
 -- convert from api to domain
 
@@ -236,8 +306,8 @@ detailsToDomain d =
 -- state operations
 
 
-updateStateEndingSoon : State -> Height -> List Domain -> State
-updateStateEndingSoon state lastBlock newDomains =
+updateStateEndingSoon : State -> Height -> List Domain -> (Domain -> Bool) -> State
+updateStateEndingSoon state lastBlock newDomains isFave =
     let
         firstBlock : Height
         firstBlock =
@@ -259,7 +329,7 @@ updateStateEndingSoon state lastBlock newDomains =
 
         allDomains : List Domain
         allDomains =
-            mergeDomainLists oldDomains newDomains
+            mergeDomainLists oldDomains newDomains isFave
     in
     State newLastBlock <|
         hideBlocks newLastBlock <|
@@ -369,6 +439,7 @@ gotEndingSoon model page endingSoon =
                 model.state
                 endingSoon.lastBlock
                 domains
+                model.isFave
     in
     ( { model | status = Success, state = newState }
     , updateEndingSoon newState page domains
@@ -395,6 +466,12 @@ gotDomainDetails model domainDetails =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        UrlChanged url ->
+            ( model, Cmd.none )
+
+        LinkClicked urlRequest ->
+            ( model, Cmd.none )
+
         Tick now ->
             updateOnTick now model
 
@@ -447,8 +524,12 @@ update msg model =
             )
 
         FlipFave domain ->
-            ( { model | state = flipFave domain model.state }
-            , Cmd.none
+            let
+                newState =
+                    flipFave domain model.state
+            in
+            ( { model | state = newState }
+            , favesIntoUrl model.initialUrl model.navKey newState.blocks
             )
 
         ShowFaves block ->
@@ -466,10 +547,14 @@ update msg model =
 -- VIEW
 
 
-view : Model -> Html Msg
+view : Model -> Document Msg
 view model =
-    div [ id "sniper" ]
-        (viewHeader model ++ viewState model.state)
+    { title = "Sniper"
+    , body =
+        [ div [ id "sniper" ]
+            (viewHeader model ++ viewState model.state)
+        ]
+    }
 
 
 viewHeader : Model -> List (Html Msg)

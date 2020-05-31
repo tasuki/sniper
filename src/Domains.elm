@@ -13,6 +13,7 @@ module Domains exposing
     , className
     , currentBlock
     , domainsWithoutHighestBid
+    , favedDomains
     , flipFaveFlag
     , getDomainsAtBlocks
     , hideBlocks
@@ -133,8 +134,8 @@ sortDomains =
     List.sortWith (by compareByFaved |> andThen .name)
 
 
-mergeDomainLists : List Domain -> List Domain -> List Domain
-mergeDomainLists oldDomains newDomains =
+mergeDomainLists : List Domain -> List Domain -> (Domain -> Bool) -> List Domain
+mergeDomainLists oldDomains newDomains isFave =
     let
         oldDomainsDict : Dict String Domain
         oldDomainsDict =
@@ -162,7 +163,7 @@ mergeDomainLists oldDomains newDomains =
                     old
 
                 ( _, Just new ) ->
-                    new
+                    { new | faved = isFave new }
 
                 ( _, _ ) ->
                     emptyDomain
@@ -214,6 +215,11 @@ replaceBlocks =
 domainsWithoutHighestBid : List Block -> List Domain
 domainsWithoutHighestBid =
     List.concatMap .domains >> List.filter (\d -> d.highestBid == Nothing)
+
+
+favedDomains : List Block -> List Domain
+favedDomains =
+    List.concatMap .domains >> List.filter .faved
 
 
 updateBlockDomains : List Block -> Height -> List Domain -> Block

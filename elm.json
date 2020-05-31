@@ -12,12 +12,14 @@
             "elm/http": "2.0.0",
             "elm/json": "1.1.3",
             "elm/time": "1.0.0",
-            "elm-community/list-extra": "8.2.4"
+            "elm/url": "1.0.0",
+            "elm-community/list-extra": "8.2.4",
+            "ggb/elm-bloom": "1.1.0"
         },
         "indirect": {
+            "Skinney/murmur3": "2.0.8",
             "elm/bytes": "1.0.8",
             "elm/file": "1.0.5",
-            "elm/url": "1.0.0",
             "elm/virtual-dom": "1.0.2"
         }
     },
