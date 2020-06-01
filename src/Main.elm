@@ -519,9 +519,12 @@ update msg model =
             let
                 removeHiddenBlocks state =
                     { state | blocks = removeHidden state.blocks }
+
+                newState =
+                    removeHiddenBlocks model.state
             in
-            ( { model | state = removeHiddenBlocks model.state }
-            , Cmd.none
+            ( { model | state = newState }
+            , favesIntoUrl model.initialUrl model.navKey newState.blocks
             )
 
         FlipFave domain ->
