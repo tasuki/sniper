@@ -15,11 +15,11 @@ module Domains exposing
     , domainsWithoutHighestBid
     , favedDomains
     , flipFaveFlag
-    , getDomainsAtBlocks
     , hideBlocks
     , mergeDomainLists
     , nextBlock
     , oldestBlockState
+    , putDomainsInBlocks
     , removeHidden
     , replaceBlocks
     , replaceSortedBlocks
@@ -134,8 +134,8 @@ sortDomains =
     List.sortWith (by compareByFaved |> andThen .name)
 
 
-mergeDomainLists : List Domain -> List Domain -> (Domain -> Bool) -> List Domain
-mergeDomainLists oldDomains newDomains isFave =
+mergeDomainLists : (Domain -> Bool) -> List Domain -> List Domain -> List Domain
+mergeDomainLists isFave newDomains oldDomains =
     let
         oldDomainsDict : Dict String Domain
         oldDomainsDict =
@@ -222,25 +222,23 @@ favedDomains =
     List.concatMap .domains >> List.filter .faved
 
 
-updateBlockDomains : List Block -> Height -> List Domain -> Block
-updateBlockDomains blocks height domains =
-    case List.Extra.find (\b -> b.height == height) blocks of
-        Nothing ->
-            Block height domains Regular False
-
-        Just b ->
-            { b | domains = domains }
-
-
-getDomainsAtBlocks : List Block -> List Domain -> List Height -> List Block
-getDomainsAtBlocks blocks domains =
+putDomainsInBlocks : (Height -> Bool) -> List Height -> List Domain -> List Block -> List Block
+putDomainsInBlocks showFavedOnly blocksToShow domains blocks =
     let
+        updateBlock : Height -> List Domain -> Block
+        updateBlock height domainList =
+            case List.Extra.find (\b -> b.height == height) blocks of
+                Nothing ->
+                    Block height domainList Regular (showFavedOnly height)
+
+                Just b ->
+                    { b | domains = domainList }
+
         getBlock : List Domain -> Height -> Block
         getBlock ds height =
-            List.filter (\d -> d.reveal == height) ds
-                |> updateBlockDomains blocks height
+            List.filter (\d -> d.reveal == height) ds |> updateBlock height
     in
-    List.map (getBlock domains)
+    List.map (getBlock domains) blocksToShow
 
 
 oldestBlockState : List Block -> ElementState

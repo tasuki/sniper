@@ -88,7 +88,7 @@ type alias Model =
     { status : Status
     , state : State
     , refreshed : Time.Posix
-    , isFave : Domain -> Bool
+    , savedInFilter : String -> Bool
     , initialUrl : Url.Url
     , navKey : Nav.Key
     }
@@ -118,11 +118,11 @@ init _ url navKey =
                 Nothing ->
                     emptyBloomFilter
 
-        isFave : Domain -> Bool
-        isFave domain =
-            Bloom.test domain.name filter
+        savedInFilter : String -> Bool
+        savedInFilter str =
+            Bloom.test str filter
     in
-    ( Model Initial initialState (Time.millisToPosix 0) isFave url navKey
+    ( Model Initial initialState (Time.millisToPosix 0) savedInFilter url navKey
     , Task.perform Tick Time.now
     )
 
@@ -235,16 +235,21 @@ removeEndedBlocks state =
         Cmd.none
 
 
-encodeFaves : List Block -> String
-encodeFaves blocks =
+encodeState : List Block -> String
+encodeState blocks =
     let
         faves : List String
         faves =
             favedDomains blocks |> List.map .name
 
-        faveFilter : Bloom.Filter
-        faveFilter =
-            List.foldr Bloom.add emptyBloomFilter faves
+        favedBlocks : List String
+        favedBlocks =
+            List.filter (\b -> b.favedOnly == True) blocks
+                |> List.map (.height >> String.fromInt)
+
+        filter : Bloom.Filter
+        filter =
+            List.foldr Bloom.add emptyBloomFilter (faves ++ favedBlocks)
 
         getSix : Base64.Data -> List Int -> Base64.Data
         getSix acc ints =
@@ -256,13 +261,17 @@ encodeFaves blocks =
                     -- if there aren't 6 tough luck we drop 'em
                     acc
     in
-    Array.toList faveFilter.set |> getSix [] |> List.reverse |> Base64.encode
+    Array.toList filter.set |> getSix [] |> List.reverse |> Base64.encode
 
 
-favesIntoUrl : Url.Url -> Nav.Key -> List Block -> Cmd Msg
-favesIntoUrl url navKey blocks =
-    Nav.pushUrl navKey <|
-        Url.toString { url | fragment = Just (encodeFaves blocks) }
+stateIntoUrl : Model -> Cmd Msg
+stateIntoUrl model =
+    let
+        updateUrl : Url.Url -> Url.Url
+        updateUrl initialUrl =
+            { initialUrl | fragment = Just <| encodeState model.state.blocks }
+    in
+    Nav.pushUrl model.navKey <| Url.toString <| updateUrl model.initialUrl
 
 
 
@@ -307,8 +316,8 @@ detailsToDomain d =
 -- state operations
 
 
-updateStateEndingSoon : State -> Height -> List Domain -> (Domain -> Bool) -> State
-updateStateEndingSoon state lastBlock newDomains isFave =
+updateStateEndingSoon : State -> Height -> List Domain -> (String -> Bool) -> State
+updateStateEndingSoon state lastBlock newDomains savedInFilter =
     let
         firstBlock : Height
         firstBlock =
@@ -328,13 +337,25 @@ updateStateEndingSoon state lastBlock newDomains isFave =
         showBlocks height =
             List.range firstBlock (currentBlock height + blocksToDisplay)
 
+        isFave : Domain -> Bool
+        isFave domain =
+            savedInFilter domain.name
+
+        showFavedOnly : Height -> Bool
+        showFavedOnly height =
+            savedInFilter <| String.fromInt height
+
         allDomains : List Domain
         allDomains =
-            mergeDomainLists oldDomains newDomains isFave
+            mergeDomainLists isFave newDomains oldDomains
     in
     State newLastBlock <|
         hideBlocks newLastBlock <|
-            getDomainsAtBlocks state.blocks allDomains (showBlocks newLastBlock)
+            putDomainsInBlocks
+                showFavedOnly
+                (showBlocks newLastBlock)
+                allDomains
+                state.blocks
 
 
 updateStateDomainDetails : Height -> Domain -> State -> State
@@ -440,7 +461,7 @@ gotEndingSoon model page endingSoon =
                 model.state
                 endingSoon.lastBlock
                 domains
-                model.isFave
+                model.savedInFilter
     in
     ( { model | status = Success, state = newState }
     , updateEndingSoon newState page domains
@@ -520,31 +541,31 @@ update msg model =
                 removeHiddenBlocks state =
                     { state | blocks = removeHidden state.blocks }
 
-                newState =
-                    removeHiddenBlocks model.state
+                newModel =
+                    { model | state = removeHiddenBlocks model.state }
             in
-            ( { model | state = newState }
-            , favesIntoUrl model.initialUrl model.navKey newState.blocks
-            )
+            ( newModel, stateIntoUrl newModel )
 
         FlipFave domain ->
             let
-                newState =
-                    flipFave domain model.state
+                newModel =
+                    { model | state = flipFave domain model.state }
             in
-            ( { model | state = newState }
-            , favesIntoUrl model.initialUrl model.navKey newState.blocks
-            )
+            ( newModel, stateIntoUrl newModel )
 
         ShowFaves block ->
-            ( { model | state = showHideFaved False block model.state }
-            , Cmd.none
-            )
+            let
+                newModel =
+                    { model | state = showHideFaved False block model.state }
+            in
+            ( newModel, stateIntoUrl newModel )
 
         HideFaves block ->
-            ( { model | state = showHideFaved True block model.state }
-            , Cmd.none
-            )
+            let
+                newModel =
+                    { model | state = showHideFaved True block model.state }
+            in
+            ( newModel, stateIntoUrl newModel )
 
 
 
@@ -586,7 +607,7 @@ Auctions ending in 2 blocks every 2 minutes, etc.
 We use the [Namebase](https://www.namebase.io) API &ndash; thank you Namebase!
 Written with joy in [Elm](https://elm-lang.org/).
 The [source code is on GitHub](https://github.com/tasuki/sniper).
-I'm learning, go easy on me.
+Your faves and collapsed blocks are saved in [a bloom filter](https://llimllib.github.io/bloomfilter-tutorial/) in the url fragment.
 """
 
 
