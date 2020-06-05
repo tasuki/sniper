@@ -10,11 +10,12 @@
 
   <style>
     html, button, input, select, textarea, .pure-g [class *= "pure-u"] { font-family: "Mate", sans-serif; letter-spacing: 0; }
-    body { background-color: #222; color: #CCC; font-weight: 400; font-size: 1.2em; line-height: 1.3; }
+    body { background-color: #EEE; color: #000; font-weight: 400; font-size: 1.2em; line-height: 1.3; }
     #wrap { width: 950px; margin: auto; padding: 10px; }
     #sniper { width: 650px; float: left; }
     #sidebar { width: 250px; float: right; margin-top: 70px; font-size: .7em; }
-    a:link, a:visited { color: #FFF; text-decoration: none; }
+    a:link, a:visited { color: #000; text-decoration: none; }
+    #sidebar a:link, #sidebar a:visited { color: #48F; }
     a:hover { text-decoration: underline; }
     abbr[title] { text-decoration: none; cursor: help; }
 
@@ -24,29 +25,29 @@
 
     .topbar { padding: 10px 0px; }
     .header { font-weight: bold; padding: 10px 0px; }
-    .section { border-top: 1px solid #333; padding: 10px 0px; }
+    .section { border-top: 1px solid #DDD; padding: 10px 0px; }
 
     .error { color: #C33; }
 
     .domain-header .h div, .domain-header .g div { padding: 0px 10px; }
 
     .domain, .domain-header { padding: 2px 8px; }
-    .domain .h { color: #888; visibility: hidden; }
-    .domain .g { color: #888; visibility: hidden; }
+    .domain .h { color: #666; visibility: hidden; }
+    .domain .g { color: #666; visibility: hidden; }
     .domain:hover .g, .domain:hover .h { visibility: visible; }
-    .domain:hover { background-color: #292929; }
+    .domain:hover { background-color: #FFF; }
 
     .it { font-style: italic; }
-    .gray { color: #888; }
-    .h a, .g a { color: #888; padding: 0px 10px; }
-    .h a:hover { color: #966; text-decoration: none; cursor: pointer; }
+    .gray { color: #666; }
+    .h a, .g a { color: #666; padding: 0px 10px; }
+    .h a:hover { color: #C66; text-decoration: none; cursor: pointer; }
     .g a:hover { color: #48F; text-decoration: none; }
     .domain .faved { visibility: visible; }
-    .domain .faved a { color: #C33; }
+    .domain .faved a { color: #F55; }
 
     .block { text-align: right; }
     .block div { padding: 2px 20px 2px 0px; }
-    .show-hide-none { color: #888; padding: 2px 8px; text-align: center; }
+    .show-hide-none { color: #666; padding: 2px 8px; text-align: center; }
     .show-hide-none a:hover { text-decoration: none; cursor: pointer; }
 
     .bids { text-align: right; }
@@ -61,8 +62,8 @@
 
     .hide { animation: flashHide 2s forwards; }
     @keyframes flashHide {
-      0%, 10%, 30%, 40%, 60%, 70% { background-color: #FFF; }
-      29%, 59% { background-color: #222; }
+      0%, 10%, 30%, 40%, 60%, 70% { background-color: #000; }
+      29%, 59% { background-color: #FFF; }
       91% { max-height: 1000px; opacity: 1; padding: 10px 0px; }
       to { max-height: 0px; opacity: 0; padding: 0px; }
     }
