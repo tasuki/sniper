@@ -26,10 +26,12 @@
     },
     "test-dependencies": {
         "direct": {
-            "elm-explorations/test": "1.2.2"
+            "elm-community/random-extra": "3.1.0",
+            "elm-explorations/test": "1.2.2",
+            "elm/random": "1.0.0"
         },
         "indirect": {
-            "elm/random": "1.0.0"
+            "owanturist/elm-union-find": "1.0.0"
         }
     }
 }
