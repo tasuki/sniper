@@ -4,6 +4,7 @@ import ApiClient as AC
 import Array
 import Base64
 import Bloom
+import BloomFilter
 import Browser exposing (Document)
 import Browser.Navigation as Nav
 import Config
@@ -28,11 +29,6 @@ blocksToDisplay =
 
 secondsTillStale =
     600
-
-
-emptyBloomFilter : Bloom.Filter
-emptyBloomFilter =
-    Bloom.empty 1080 4
 
 
 
@@ -112,11 +108,14 @@ init _ url navKey =
         filter : Bloom.Filter
         filter =
             case url.fragment of
-                Just bloomStr ->
-                    { emptyBloomFilter | set = decodeFaves bloomStr }
+                Just "" ->
+                    BloomFilter.empty
 
                 Nothing ->
-                    emptyBloomFilter
+                    BloomFilter.empty
+
+                Just bloomStr ->
+                    BloomFilter.read <| decodeFaves bloomStr
 
         savedInFilter : String -> Bool
         savedInFilter str =
@@ -249,7 +248,7 @@ encodeState blocks =
 
         filter : Bloom.Filter
         filter =
-            List.foldr Bloom.add emptyBloomFilter (faves ++ favedBlocks)
+            BloomFilter.create (faves ++ favedBlocks)
 
         getSix : Base64.Data -> List Int -> Base64.Data
         getSix acc ints =
