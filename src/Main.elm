@@ -241,14 +241,14 @@ encodeState blocks =
         faves =
             favedDomains blocks |> List.map .name
 
-        favedBlocks : List String
-        favedBlocks =
+        favedOnlyBlocks : List String
+        favedOnlyBlocks =
             List.filter (\b -> b.favedOnly == True) blocks
                 |> List.map (.height >> String.fromInt)
 
         filter : Bloom.Filter
         filter =
-            BloomFilter.create (faves ++ favedBlocks)
+            BloomFilter.create (faves ++ favedOnlyBlocks)
 
         getSix : Base64.Data -> List Int -> Base64.Data
         getSix acc ints =
@@ -573,7 +573,18 @@ update msg model =
 
 view : Model -> Document Msg
 view model =
-    { title = "Sniper"
+    let
+        favedCount =
+            favedDomains model.state.blocks
+                |> List.length
+                |> String.fromInt
+
+        collapsedBlocks =
+            List.filter (\b -> b.favedOnly == True) model.state.blocks
+                |> List.length
+                |> String.fromInt
+    in
+    { title = "Sniper - " ++ favedCount ++ " faves, " ++ collapsedBlocks ++ " collapsed blocks"
     , body =
         [ div [ id "wrap" ]
             [ div [ id "sniper" ]
