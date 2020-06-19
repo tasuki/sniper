@@ -586,10 +586,10 @@ view model =
     in
     { title = "Sniper - " ++ favedCount ++ " faves, " ++ collapsedBlocks ++ " collapsed blocks"
     , body =
-        [ div [ id "wrap" ]
-            [ div [ id "sniper" ]
+        [ div [ id "wrap", class "pure-g" ]
+            [ div [ id "sniper", class "pure-u-1-1 pure-u-lg-17-24" ]
                 (viewHeader model ++ viewState model.state)
-            , viewSidebar
+            , div [ class "pure-u-1-1 pure-u-lg-7-24" ] [ viewSidebar ]
             ]
         ]
     }
@@ -609,7 +609,6 @@ Auctions ending in 2 blocks every 2 minutes, etc.
 #### To Do
 
 - Display emoji domains right \u{1F643}
-- Make it responsive again
 - Add desktop notifications
 
 #### How's it work?
@@ -652,11 +651,11 @@ displayState : State -> List (Html Msg)
 displayState state =
     [ div [ class "pure-g topbar" ]
         [ div [ class <| classBlock ++ " it gray" ]
-            [ Util.divWrap <| text <| String.fromInt state.lastBlock ]
+            [ Util.divWrapClass "block-detail" <| text <| String.fromInt state.lastBlock ]
         , div [ class <| classDomains ]
             [ Util.divWrapClass "domain-header gray" <| text "← blockchain height" ]
         , div [ class <| classBlock ++ " it gray" ]
-            [ Util.divWrap <| text <| String.fromInt (currentBlock state.lastBlock) ]
+            [ Util.divWrapClass "block-detail" <| text <| String.fromInt (currentBlock state.lastBlock) ]
         , div [ class <| classDomains ]
             [ div [ class "domain-header gray" ]
                 [ text "← "
@@ -666,14 +665,14 @@ displayState state =
         ]
     , div [ class "pure-g header" ]
         [ div [ class classBlock ]
-            [ Util.divWrap <| text "Block" ]
+            [ Util.divWrapClass "block-detail" <| text "Block" ]
         , div [ class classDomains ]
             [ div [ class "pure-g domain-header" ]
                 [ div [ class className ] [ text "Auctioned name" ]
                 , div [ class classH ] [ Util.divWrap <| abbr [ title "Watch this name" ] [ text "❤" ] ]
                 , div [ class classG ] [ Util.divWrap <| abbr [ title "Search name on Google" ] [ text "G" ] ]
                 , div [ class classBids ] [ abbr [ title "Number of bids on the name" ] [ text "Bids" ] ]
-                , div [ class classHighest ] [ abbr [ title "Highest bid on the name" ] [ text "High bid" ] ]
+                , div [ class classHighest ] [ abbr [ title "Highest bid on the name" ] [ text "Highest" ] ]
                 ]
             ]
         ]
