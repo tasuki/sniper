@@ -608,7 +608,6 @@ Auctions ending in 2 blocks every 2 minutes, etc.
 
 #### To Do
 
-- Display emoji domains right \u{1F643}
 - Add desktop notifications
 
 #### How's it work?

@@ -32,6 +32,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import List.Extra
+import Punycode
 import Set exposing (Set)
 import Util
 
@@ -359,15 +360,32 @@ classFaved d =
         ""
 
 
+viewName : String -> String
+viewName domainName =
+    if String.startsWith "xn--" domainName then
+        let
+            punyPart =
+                String.dropLeft 4 domainName
+        in
+        Punycode.decode punyPart
+
+    else
+        domainName
+
+
 viewDomain : (Domain -> msg) -> Domain -> Html msg
 viewDomain faveAction d =
+    let
+        displayName =
+            viewName d.name
+    in
     div [ class ("pure-g domain " ++ domainState d) ]
         [ div [ class className ]
-            [ a [ href <| "https://www.namebase.io/domains/" ++ d.name ] [ text d.name ] ]
+            [ a [ href <| "https://www.namebase.io/domains/" ++ d.name ] [ text displayName ] ]
         , div [ class (classH ++ classFaved d) ]
             [ a [ onClick (faveAction d) ] [ text "❤" ] ]
         , div [ class classG ]
-            [ a [ href <| "https://www.google.com/search?q=" ++ d.name ] [ text "G" ] ]
+            [ a [ href <| "https://www.google.com/search?q=" ++ displayName ] [ text "G" ] ]
         , div [ class classBids ]
             [ text <| displayMaybeNumber d.bids ]
         , div [ class classHighest ]
