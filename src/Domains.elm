@@ -4,6 +4,7 @@ module Domains exposing
     , DomainUpdate
     , ElementState(..)
     , Height
+    , blockId
     , classBids
     , classBlock
     , classDomains
@@ -15,6 +16,7 @@ module Domains exposing
     , domainsWithoutHighestBid
     , favedDomains
     , flipFaveFlag
+    , getHidden
     , hideBlocks
     , mergeDomainLists
     , nextBlock
@@ -178,6 +180,11 @@ mergeDomainLists isFave newDomains oldDomains =
 -- blocks
 
 
+blockId : Block -> String
+blockId block =
+    "block-" ++ String.fromInt block.height
+
+
 sortBlock : Block -> Block
 sortBlock block =
     { block | domains = sortDomains block.domains }
@@ -266,6 +273,11 @@ hideBlocks lastBlock =
 removeHidden : List Block -> List Block
 removeHidden =
     List.Extra.dropWhile (\block -> block.state == Hidden)
+
+
+getHidden : List Block -> List Block
+getHidden =
+    List.Extra.takeWhile (\block -> block.state == Hidden)
 
 
 
@@ -467,7 +479,7 @@ viewBlock faveAction showFaves hideFaves chainHeight block =
                 List.filter (\d -> not block.favedOnly || d.faved) block.domains
                     |> List.map (viewDomain faveAction)
     in
-    div [ class ("pure-g section " ++ blockState block) ]
+    div [ id <| blockId block, class ("pure-g section " ++ blockState block) ]
         [ div [ class <| classBlock ++ " it gray" ]
             [ blockInfo chainHeight block.height ]
         , div [ class <| classDomains ]

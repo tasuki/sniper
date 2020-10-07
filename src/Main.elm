@@ -6,6 +6,7 @@ import Base64
 import Bloom
 import BloomFilter
 import Browser exposing (Document)
+import Browser.Dom as Dom
 import Browser.Navigation as Nav
 import Config
 import Domains exposing (..)
@@ -13,7 +14,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Markdown
 import Set exposing (Set)
-import Task
+import Task exposing (Task)
 import Time
 import Url
 import Util
@@ -136,7 +137,8 @@ chooseLastBlock state =
 
 
 type Msg
-    = UrlChanged Url.Url
+    = NoOp
+    | UrlChanged Url.Url
     | LinkClicked Browser.UrlRequest
     | FetchEndingSoon
     | Tick Time.Posix
@@ -271,6 +273,40 @@ stateIntoUrl model =
             { initialUrl | fragment = Just <| encodeState model.state.blocks }
     in
     Nav.pushUrl model.navKey <| Url.toString <| updateUrl model.initialUrl
+
+
+blockHideScroll : String -> Cmd Msg
+blockHideScroll elementId =
+    let
+        newTop : Dom.Element -> Float
+        newTop el =
+            Basics.min el.element.y el.viewport.y
+    in
+    Dom.getElement elementId
+        |> Task.andThen (\el -> Dom.setViewport 0 (newTop el))
+        |> Task.attempt (\_ -> NoOp)
+
+
+blockRemoveScroll : List String -> Cmd Msg
+blockRemoveScroll elementIds =
+    let
+        heightSum : List Dom.Element -> Float
+        heightSum =
+            List.foldl (\e acc -> acc + e.element.height) 0
+
+        newTop : List Dom.Element -> Float
+        newTop els =
+            case els of
+                el :: _ ->
+                    el.viewport.y - heightSum els
+
+                _ ->
+                    0
+    in
+    List.map Dom.getElement elementIds
+        |> Task.sequence
+        |> Task.andThen (\els -> Dom.setViewport 0 (newTop els))
+        |> Task.attempt (\_ -> NoOp)
 
 
 
@@ -487,6 +523,9 @@ gotDomainDetails model domainDetails =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        NoOp ->
+            ( model, Cmd.none )
+
         UrlChanged url ->
             ( model, Cmd.none )
 
@@ -542,8 +581,11 @@ update msg model =
 
                 newModel =
                     { model | state = removeHiddenBlocks model.state }
+
+                hiddenBlocks =
+                    List.map blockId <| getHidden model.state.blocks
             in
-            ( newModel, stateIntoUrl newModel )
+            ( newModel, Cmd.batch [ stateIntoUrl newModel, blockRemoveScroll hiddenBlocks ] )
 
         FlipFave domain ->
             let
@@ -564,7 +606,7 @@ update msg model =
                 newModel =
                     { model | state = showHideUnfaved True block model.state }
             in
-            ( newModel, stateIntoUrl newModel )
+            ( newModel, Cmd.batch [ stateIntoUrl newModel, blockHideScroll <| blockId block ] )
 
 
 
