@@ -392,8 +392,8 @@ flipFave domain state =
     { state | blocks = newBlocks }
 
 
-showHideFaved : Bool -> Block -> State -> State
-showHideFaved favedOnly blockToUpdate state =
+showHideUnfaved : Bool -> Block -> State -> State
+showHideUnfaved favedOnly blockToUpdate state =
     let
         maybeUpdateBlock : Block -> Block
         maybeUpdateBlock block =
@@ -555,14 +555,14 @@ update msg model =
         ShowFaves block ->
             let
                 newModel =
-                    { model | state = showHideFaved False block model.state }
+                    { model | state = showHideUnfaved False block model.state }
             in
             ( newModel, stateIntoUrl newModel )
 
         HideFaves block ->
             let
                 newModel =
-                    { model | state = showHideFaved True block model.state }
+                    { model | state = showHideUnfaved True block model.state }
             in
             ( newModel, stateIntoUrl newModel )
 
