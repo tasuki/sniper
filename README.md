@@ -1,5 +1,7 @@
 ## Sniper
 
+[![Build Status](https://travis-ci.org/tasuki/sniper.svg?branch=master)](https://travis-ci.org/tasuki/sniper)
+
 An interface for watching Handshake auctions. Uses [Namebase]'s APIs, so
 linking back to their servers.
 
