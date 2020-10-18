@@ -372,39 +372,11 @@ classFaved d =
         ""
 
 
-decodeName : String -> String
-decodeName domainName =
-    let
-        punyPart =
-            String.dropLeft 4 domainName
-
-        decoded =
-            Punycode.decode punyPart
-
-        len =
-            String.length <| String.trim decoded
-    in
-    if len > 0 then
-        decoded
-
-    else
-        domainName
-
-
-viewName : String -> String
-viewName domainName =
-    if String.startsWith "xn--" domainName then
-        decodeName domainName
-
-    else
-        domainName
-
-
 viewDomain : (Domain -> msg) -> Domain -> Html msg
 viewDomain faveAction d =
     let
         displayName =
-            viewName d.name
+            Punycode.decodeIdn d.name
     in
     div [ class ("pure-g domain " ++ domainState d) ]
         [ div [ class className ]
