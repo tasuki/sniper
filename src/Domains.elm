@@ -372,14 +372,29 @@ classFaved d =
         ""
 
 
+decodeName : String -> String
+decodeName domainName =
+    let
+        punyPart =
+            String.dropLeft 4 domainName
+
+        decoded =
+            Punycode.decode punyPart
+
+        len =
+            String.length <| String.trim decoded
+    in
+    if len > 0 then
+        decoded
+
+    else
+        domainName
+
+
 viewName : String -> String
 viewName domainName =
     if String.startsWith "xn--" domainName then
-        let
-            punyPart =
-                String.dropLeft 4 domainName
-        in
-        Punycode.decode punyPart
+        decodeName domainName
 
     else
         domainName
