@@ -16,7 +16,8 @@
             "elm-community/list-extra": "8.2.4",
             "elm-community/string-extra": "4.0.1",
             "elm-explorations/markdown": "1.0.0",
-            "ggb/elm-bloom": "1.1.1"
+            "ggb/elm-bloom": "1.1.1",
+            "tasuki/elm-punycode": "1.1.0"
         },
         "indirect": {
             "elm/bytes": "1.0.8",
