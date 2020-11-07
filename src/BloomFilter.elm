@@ -9,7 +9,7 @@ import Bloom
 
 
 falsePositives =
-    1 / 1000
+    1 / 10000
 
 
 hashFunctions =
