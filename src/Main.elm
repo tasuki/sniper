@@ -648,10 +648,6 @@ This website helps you keep an eye on soon-ending Handshake auctions.
 The auctions ending in 1 block are refreshed every minute.
 Auctions ending in 2 blocks every 2 minutes, etc.
 
-#### To Do
-
-- Add desktop notifications
-
 #### How's it work?
 
 We use the [Namebase](https://www.namebase.io) API &ndash; thank you Namebase!
