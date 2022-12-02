@@ -3,9 +3,6 @@ export
 
 default: build
 
-react:
-	elm reactor
-
 basic:
 	cp -f Config.elm src/Config.elm
 
